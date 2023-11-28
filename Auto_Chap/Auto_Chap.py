@@ -93,6 +93,7 @@ def find_offset(within_file, find_file, t_path, make_charts, window = 30): # Cha
         y_within, sr_within = librosa.load(within_file, sr=None)
     except:
         print("Could not load input file", file=sys.stderr)
+        sys.exit(1)
     y_find, _ = librosa.load(find_file, sr=sr_within)
     
     theme_name = os.path.splitext(find_file.name)[0]
@@ -157,7 +158,6 @@ def chapter_validator(offset_list, file_duration):
         print("Chapters not valid. Invalid number of offsets", file=sys.stderr)
         return False
         
-    
 def generate_chapters(offset_list, file_duration, out_path):
     snapping_distance = 4 # seconds to snap to beginning or end
     
@@ -277,11 +277,11 @@ def main():
     make_folders(work_path) 
     
     if not no_download:
-        # try:
+        try:
             series_json = get_series_json(search_name)
             download_themes(t_path, series_json)
-        # except:
-            # print(f"Couldn't access api or download", file=sys.stderr)
+        except:
+            print(f"Couldn't access api or download", file=sys.stderr)
     
     offset_list = []
     for theme_file in os.scandir(t_path):

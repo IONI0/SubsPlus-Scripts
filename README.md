@@ -6,11 +6,11 @@ Automation scripts made for fixing Hidive subtitles and other functions.
 
 These are the first batch of scripts. There are a few more I haven't finished cleaning up yet, they might be added later. I'm not very experienced programmer so constructive criticism is appreciated. 
 
-These scripts are first and foremost made for SubsPlus+ releases and Hidive shows, don't expect it the more specific scripts to work outside of that context.
+These scripts are first and foremost made for SubsPlus+ releases and Hidive subtitles, don't expect the more specific scripts to work outside of that context.
 
 ### Auto_Chap
 
-Generate chapters by matching themes downloaded from [AnimeThemes](https://animethemes.moe) to the episode. It creates a `.themes` folder with the downloaded themes for future runs and charts for where the themes matched in the episode. Chapters will not be generated if 0 or more than 2 themes are matched, or 2 themes are in the same half of the episode.
+Generate chapters by matching themes downloaded from [AnimeThemes](https://animethemes.moe) to the episode. It creates a `.themes` folder with the downloaded themes for future runs and charts showing where the themes matched in the episode. Chapters will not be generated if 0 or more than 2 themes are matched, or 2 themes are in the same half of the episode.
 
 #### Dependencies
 ```
@@ -71,6 +71,8 @@ ENDING = "Ending"
 POST_ED = "Epilogue"
 ```
 
+---
+
 ### Chapter_Snapper
 Snap chapter file to nearest keyframe. Chapter file must be in simple chapter format.
 
@@ -101,6 +103,8 @@ Generate with increased snap window.
 python Chapter_Snapper.py -i "autochap.txt" -kf "keyframes.txt" -s 2000 -o "Project/chapter_snapped.txt"
 ```
 
+---
+
 ### Overlap_Blue
 Change outline color of a line when it is overlapping another. Supports top and bottom track but only if they are defined in styles not inline. Works well for Crunchyroll and Hidive shows.
 
@@ -115,6 +119,8 @@ DIALOGUE_FONT = None
 COLOR_HEX = "&H743E15&"
 ```
 
+---
+
 ### Hidive_Splitter
 Relavant for [multi-downloader-nx](https://github.com/anidl/multi-downloader-nx) and [hidive-downloader-nx](https://github.com/anidl/hidive-downloader-nx). Split and combine lines so that each line has its own event. This prevents subtitles from shifting positions. Note: Some orders will be reversed to preserve rendering position.
 
@@ -122,6 +128,8 @@ Relavant for [multi-downloader-nx](https://github.com/anidl/multi-downloader-nx)
 ```
 python Hidive_Splitter.py infile.ass outfile.ass
 ```
+
+---
 
 ### P-Proper_Stutter
 Capitalise and fix stutters:
@@ -134,6 +142,8 @@ Capitalise and fix stutters:
 ```
 python P-Proper_Stutter.py infile.ass outfile.ass
 ```
+
+---
 
 ### Regex_Stuff
 Designed for hidive scripts from [multi-downloader-nx](https://github.com/anidl/multi-downloader-nx).
