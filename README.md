@@ -4,9 +4,9 @@ Automation scripts made for fixing Hidive subtitles and other functions.
 
 ## Scripts
 
-These are the first batch of scripts. There are a few more I haven't finished cleaning up yet, they might be added later. I'm not very experienced programmer so constructive criticism is appreciated. 
+These are the first batch of scripts. There are a few more I haven't finished cleaning up yet, which I might add later. I'm not an experienced programmer, so constructive criticism is appreciated.
 
-These scripts are first and foremost made for SubsPlus+ releases and Hidive subtitles, don't expect the more specific scripts to work outside of that context.
+These scripts are first and foremost made for SubsPlus+ releases and Hidive subtitles, so don't expect the more specific scripts to work outside of that context.
 
 ### Auto_Chap
 
@@ -136,7 +136,7 @@ Capitalise and fix stutters:
 - F-f-find -> F-F-Find
 - Sh-she -> Sh-She
 - W-when -> Wh-When
-- S..So -> S-So or S... So
+- S..so -> S..So (Can be configure to be S-So or S... So)
 
 #### Usage
 ```

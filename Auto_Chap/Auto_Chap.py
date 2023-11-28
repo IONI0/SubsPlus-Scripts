@@ -219,7 +219,7 @@ def main():
     
     parser.add_argument(
         "--search-name", "-s", type=str,
-        help="Search to pass to animethemes.moe Example: Spy Classroom Season 2. For no theme downloading, don't add this argument.",
+        help="Search to pass to animethemes.moe Example: Spy Classroom Season 2. To use themes that are already downloaded, don't add this argument.",
     )
     
     parser.add_argument(
@@ -239,7 +239,7 @@ def main():
     
     parser.add_argument(
         "--charts", "-c", default=False, action="store_true",
-        help="Make charts of correlation scores. They can almost double processing time in some cases though.",
+        help="Make charts of where themes are matched in the episode. They can almost double processing time in some cases though.",
     )
     
     args = parser.parse_args()

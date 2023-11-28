@@ -115,12 +115,12 @@ class Timecodes(object):
         return Timecodes([], default_fps=fps)
     
 def get_closest_kf(frame, keyframes):
-            idx = bisect.bisect_left(keyframes, frame)
-            if idx == len(keyframes):
-                return keyframes[-1]
-            if idx == 0 or keyframes[idx] - frame < frame - (keyframes[idx-1]):
-                return keyframes[idx]
-            return keyframes[idx-1]
+    idx = bisect.bisect_left(keyframes, frame)
+    if idx == len(keyframes):
+        return keyframes[-1]
+    if idx == 0 or keyframes[idx] - frame < frame - (keyframes[idx-1]):
+        return keyframes[idx]
+    return keyframes[idx-1]
     
 def main():
     parser = argparse.ArgumentParser(description="Snap chapters to nearest keyframe.")
