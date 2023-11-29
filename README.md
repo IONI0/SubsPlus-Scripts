@@ -21,7 +21,7 @@ pip install -r requirements.txt
 ```console
 $ python Auto_Chap.py --help
 usage: Auto_Chap.py [-h] --input INPUT [--search-name SEARCH_NAME] [--work-path WORK_PATH] [--output OUTPUT]
-                         [--delete-themes] [--charts]
+                    [--delete-themes] [--charts]
 
 Automatic anime chapter generator using animethemes.
 
@@ -30,16 +30,16 @@ options:
   --input INPUT, -i INPUT
                         Video/Audio file.
   --search-name SEARCH_NAME, -s SEARCH_NAME
-                        Search to pass to animethemes.moe Example: Spy Classroom Season 2. For no theme downloading,
-                        don't add this argument.
+                        Search to pass to animethemes.moe Example: Spy Classroom Season 2. To only use themes that are
+                        already downloaded, don't add this argument.
   --work-path WORK_PATH, -w WORK_PATH
                         Place to create a .themes folder for storing persistant information per series. Defaults to
                         where the episode is.
   --output OUTPUT, -o OUTPUT
                         Output chapter file. Defaults to where the episode is.
   --delete-themes, -d   Delete the themes and charts after running.
-  --charts, -c          Make charts of correlation scores. They can almost double processing time in some cases
-                        though.
+  --charts, -c          Make charts of where themes are matched in the episode. They can almost double processing time
+                        in some cases though.
 ```
 
 #### Examples
