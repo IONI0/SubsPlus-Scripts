@@ -1,4 +1,4 @@
-# Hidive_Splitter V2.0
+# Hidive_Splitter V2.1
 import sys
 import re
 
@@ -28,21 +28,25 @@ def timestamp_to_centiseconds(timestamp):
     centiseconds = 360000*hour + 6000*minute + 100*second + centisecond
     return centiseconds
 
-def generate_styles_dict(lines_list, styles_dict):
+def generate_styles_dict(lines_list):
+    # Used to compare if two styles are the same and can be merged
+    styles_dict = {}
     for line in lines_list:
         if line.startswith("Style: "):
             style_split = line.split(",", 1) 
             style_name = style_split[0].replace("Style: ", "")
             style_info = style_split[1]
             styles_dict[style_name] = style_info
+            
+    return styles_dict
 
 def split_subs(lines_list):
     out_lines = []
     for line in lines_list:
         if line.startswith("Dialogue: "):
-            d = line2dict(line)
-            if not "Caption" in d["Style"]:
-                split_lines(d, out_lines)
+            line_dict = line2dict(line)
+            if not "Caption" in line_dict["Style"]:
+                split_lines(line_dict, out_lines)
             else:
                 out_lines.append(line)
         else: 
@@ -52,10 +56,9 @@ def split_subs(lines_list):
             
 def combine_lines(lines_list, styles_dict):
     out_lines = []
-    for i in range(len(lines_list)):
-        cur_line = lines_list[i]
-        if not cur_line.startswith("Dialogue: "):
-            out_lines.append(cur_line)
+    for line in lines_list:
+        if not line.startswith("Dialogue: "):
+            out_lines.append(line)
             continue        
         
         has_combined = False 
@@ -65,12 +68,12 @@ def combine_lines(lines_list, styles_dict):
                 check_line = line2dict(check_line)
             else:
                 continue
-            has_combined = combine(line2dict(cur_line), check_line, out_lines, styles_dict)
+            has_combined = combine(line2dict(line), check_line, out_lines, styles_dict)
             if has_combined:
                 break
         
         if not has_combined:
-            out_lines.append(cur_line)
+            out_lines.append(line)
     
     return out_lines
     
@@ -79,41 +82,44 @@ def split_lines(line_dict, lines_list):
     # Need to be inversed to preserve render positions
     result = []
     line_split = line_dict["Text"].split("\\N")
+    original_style = line_dict["Style"]
     add_style = line_dict["Style"]
-    add_line = ""
+    add_line = []
     
     for line in line_split:
         if re.search(r"\\r(.*?)}", line):
             new_style = re.search(r"\\r(.*?)}", line).group(1)
             line = re.search(r"}(.*?){", line).group(1)
         else:
-            new_style = line_dict["Style"]
+            new_style = original_style
         
         if add_style == new_style:
-            add_line += line + "\\N"
-        else:
-            # Add everything before in
-            line_dict["Style"] = add_style
-            line_dict["Text"] = add_line.rstrip("\\N").rstrip("\n") + "\n"
-            result.append(dict2line(line_dict))
+            add_line.append(line)
+        else: # Style change
+            # Add everything before as an event
+            to_add = line_dict.copy()
+            to_add["Style"] = add_style
+            to_add["Text"] = "\\N".join(add_line).rstrip("\n") + "\n"
+            result.append(dict2line(to_add))
             
+            # Start a new event
             add_style = new_style
-            add_line = line           
-            
-    line_dict["Style"] = add_style
-    line_dict["Text"] = add_line.rstrip("\\N").rstrip("\n") + "\n"
-    result.append(dict2line(line_dict))
+            add_line = [line]           
+    
+    to_add = line_dict.copy()     
+    to_add["Style"] = add_style
+    to_add["Text"] = "\\N".join(add_line).rstrip("\n") + "\n"
+    result.append(dict2line(to_add))
     result.reverse()
     lines_list.extend(result)
 
 def combine(line, check, lines_list, styles_dict):
-    if check["Text"] == line["Text"] and styles_dict[check["Style"]] == styles_dict[line["Style"]]: # If line is the same as the last line (first one)
-        if check["End"] == line["Start"]: # If they are adjacent
-            line["Start"] = check["Start"] # Combine lines
-            for x in range(1, 8): # Arbritrary lookback amount
-                if lines_list[-x] == dict2line(check): 
-                    lines_list[-x] = dict2line(line)
-                    return True
+    if check["Text"] == line["Text"] and styles_dict[check["Style"]] == styles_dict[line["Style"]] and check["End"] == line["Start"]:
+        line["Start"] = check["Start"] # Combine lines
+        for x in range(1, 8): # Arbritrary lookback amount
+            if lines_list[-x] == dict2line(check): 
+                lines_list[-x] = dict2line(line)
+                return True
     return False
             
 def reorder_simultaneous_lines(lines_list):
@@ -138,12 +144,10 @@ def reorder_simultaneous_lines(lines_list):
                 mem_end = end
         
 def main(inpath, outpath):
-    lines_list = []
-    styles_dict = {}
     with open(inpath, encoding="utf-8") as infile:
         lines_list = infile.readlines()
         
-    generate_styles_dict(lines_list, styles_dict)
+    styles_dict = generate_styles_dict(lines_list)
 
     subs_split = split_subs(lines_list)
     final_lines = combine_lines(subs_split, styles_dict)
