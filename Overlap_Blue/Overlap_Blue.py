@@ -1,4 +1,4 @@
-# Overlap_Blue V2.0
+# Overlap_Blue V2.1
 import sys
 import re
 
@@ -7,7 +7,7 @@ DIALOGUE_FONT = None
 COLOR_HEX = "&H743E15&"
 
 def line2dict(line):
-    line_pattern = re.compile(r'(?P<Format>[^:]*): ?(?P<Layer>\d*), ?(?P<Start>[^,]*), ?(?P<End>[^,]*), ?(?P<Style>[^,]*), ?(?P<Name>[^,]*), ?(?P<MarginL>[^,]*), ?(?P<MarginR>[^,]*), ?(?P<MarginV>[^,]*), ?(?P<Effect>[^,]*),(?P<Text>.*\n)')
+    line_pattern = re.compile(r"(?P<Format>[^:]*): ?(?P<Layer>\d*), ?(?P<Start>[^,]*), ?(?P<End>[^,]*), ?(?P<Style>[^,]*), ?(?P<Name>[^,]*), ?(?P<MarginL>[^,]*), ?(?P<MarginR>[^,]*), ?(?P<MarginV>[^,]*), ?(?P<Effect>[^,]*),(?P<Text>.*\n)")
     """pull fields out of ass event into dictionary
     takes string line as argument and returns dictionary or None if line is not an ASS event"""
     # print(line) # <- fun UnicodeEncodeErrors!
@@ -49,8 +49,8 @@ def generate_styles_list(lines_list):
     return is_valid_style_bottom, is_valid_style_top
 
 def apply_overlap_blue(d, current_end_time, stack_end_time):
-    start_time = timestamp_to_centiseconds(d.get('Start'))
-    end_time = timestamp_to_centiseconds(d.get('End'))
+    start_time = timestamp_to_centiseconds(d.get("Start"))
+    end_time = timestamp_to_centiseconds(d.get("End"))
     
     if start_time < (current_end_time - 5): # correct for within the frame (within 5 centiseconds for a bit extra there shouldn't be one frame gaps anyways)
         if not start_time < (stack_end_time - 5):
@@ -65,37 +65,40 @@ def apply_overlap_blue(d, current_end_time, stack_end_time):
     line = (dict2line(d))
     
     return line, current_end_time, stack_end_time
- 
-def main(inpath, outpath):
-    with open(inpath, encoding='utf-8') as infile:
-        lines_list = infile.readlines()
-        
-    is_valid_style_bottom, is_valid_style_top = generate_styles_list(lines_list)    
 
+def apply(lines_list, is_valid_style_bottom, is_valid_style_top):
     bottom_end_time = 0
     bottom_stack_end_time = 0
     top_end_time = 0
     top_stack_end_time = 0
     
     for line_idx, line in enumerate(lines_list):
-        if line.startswith("Dialogue: "):
-            d = line2dict(line)
+        if not line.startswith("Dialogue: "):
+            continue
         
-            # Bottom track
-            if d.get('Style') in is_valid_style_bottom and not any(keyword in d.get('Text', '') \
-                for keyword in ["\\an", "\\pos", "\\move"]): 
-                lines_list[line_idx], bottom_end_time, bottom_stack_end_time = apply_overlap_blue(d, bottom_end_time, bottom_stack_end_time)
-                
-            # Top track
-            elif d.get('Style') in is_valid_style_top and not any(keyword in d.get('Text', '') \
-                for keyword in ["\\an", "\\pos", "\\move"]): 
-                lines_list[line_idx], top_end_time, top_stack_end_time = apply_overlap_blue(d, top_end_time, top_stack_end_time)
+        d = line2dict(line)
+        # Bottom track
+        if d.get("Style") in is_valid_style_bottom and not any(keyword in d.get("Text", "") \
+            for keyword in ["\\an", "\\pos", "\\move"]): 
+            lines_list[line_idx], bottom_end_time, bottom_stack_end_time = apply_overlap_blue(d, bottom_end_time, bottom_stack_end_time)
+            
+        # Top track
+        elif d.get("Style") in is_valid_style_top and not any(keyword in d.get("Text", "") \
+            for keyword in ["\\an", "\\pos", "\\move"]): 
+            lines_list[line_idx], top_end_time, top_stack_end_time = apply_overlap_blue(d, top_end_time, top_stack_end_time)
+ 
+def main(inpath, outpath):
+    with open(inpath, encoding="utf-8") as infile:
+        lines_list = infile.readlines()
+        
+    is_valid_style_bottom, is_valid_style_top = generate_styles_list(lines_list)    
+    apply(lines_list, is_valid_style_bottom, is_valid_style_top)
 
-    with open(outpath, 'w', encoding='utf-8') as outfile:
+    with open(outpath, "w", encoding="utf-8") as outfile:
         outfile.writelines(lines_list)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     if len(sys.argv) != 3:
-        sys.exit(f'Usage: {sys.argv[0]} infile.ass outfile.ass')
+        sys.exit(f"Usage: {sys.argv[0]} infile.ass outfile.ass")
 
     main(sys.argv[1], sys.argv[2])

@@ -1,9 +1,9 @@
-# P-Proper_Stutter V2.0
+# P-Proper_Stutter V2.1
 import sys
 import re
 
 def line2dict(line):
-    line_pattern = re.compile(r'(?P<Format>[^:]*): ?(?P<Layer>\d*), ?(?P<Start>[^,]*), ?(?P<End>[^,]*), ?(?P<Style>[^,]*), ?(?P<Name>[^,]*), ?(?P<MarginL>[^,]*), ?(?P<MarginR>[^,]*), ?(?P<MarginV>[^,]*), ?(?P<Effect>[^,]*),(?P<Text>.*\n)')
+    line_pattern = re.compile(r"(?P<Format>[^:]*): ?(?P<Layer>\d*), ?(?P<Start>[^,]*), ?(?P<End>[^,]*), ?(?P<Style>[^,]*), ?(?P<Name>[^,]*), ?(?P<MarginL>[^,]*), ?(?P<MarginR>[^,]*), ?(?P<MarginV>[^,]*), ?(?P<Effect>[^,]*),(?P<Text>.*\n)")
     """pull fields out of ass event into dictionary
     takes string line as argument and returns dictionary or None if line is not an ASS event"""
     # print(line) # <- fun UnicodeEncodeErrors!
@@ -115,36 +115,25 @@ def stutter_opperations(words):
     new_line = new_line.replace("} ", "}")
     
     return new_line
-            
+
+def apply(lines_list):
+    for line_idx, line in enumerate(lines_list):
+        if line.startswith("Dialogue: "):
+            d = line2dict(line)
+            d["Text"] = stutter_opperations(d["Text"])   
+            lines_list[line_idx] = dict2line(d)
+       
 def main(inpath, outpath):
-    lines = list()
-    infile = open(inpath, encoding='utf-8')
-    
-    # seek to [Events] section
-    lines.append(infile.readline())
-    while lines[-1] != '[Events]\n':
-        lines.append(infile.readline())
-    lines.append(infile.readline()) 
-    nextline = infile.readline() # the first line of dialogue
+    with open(inpath, encoding="utf-8") as infile:
+        lines_list = infile.readlines()
 
-    while nextline:
-        d = line2dict(nextline)
-        if d.get('Format') == 'Dialogue':
-            words = d['Text']
-            d["Text"] = stutter_opperations(words)
-                
-        lines.append(dict2line(d))
-        nextline = infile.readline()
-        
-    infile.close()
-
-    outfile = open(outpath, 'w', encoding='utf-8')
-    for line in lines:
-        outfile.write(line)
-    outfile.close()
+    apply(lines_list)
     
-if __name__ == '__main__':
+    with open(outpath, "w", encoding="utf-8") as outfile:
+        outfile.writelines(lines_list)
+    
+if __name__ == "__main__":
     if len(sys.argv) != 3:
-        sys.exit(f'Usage: {sys.argv[0]} infile.ass outfile.ass')
+        sys.exit(f"Usage: {sys.argv[0]} infile.ass outfile.ass")
 
     main(sys.argv[1], sys.argv[2])

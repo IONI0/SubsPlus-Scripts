@@ -1,4 +1,4 @@
-# Chapter Snapper V2.0
+# Chapter Snapper V2.1
 import sys
 import bisect
 import math
@@ -7,20 +7,54 @@ import time
 import argparse
 from pathlib import Path
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Snap chapters to nearest keyframe.")
+    parser.add_argument(
+        "--input", "-i", type=Path, required=True,
+        help="Chapter file. Must be in simple format.",
+    )
+    
+    parser.add_argument(
+        "--keyframes", "-kf", type=Path, required=True,
+        help="SCXvid keyframes. Try to have minimal mkv delay or it might not line up.",
+    )
+    
+    parser.add_argument(
+        "--output", "-o", type=Path,
+        help="Output chapter file. Defaults to where input is.",
+    )
+    
+    parser.add_argument(
+        "--snap-ms", "-s", type=int, default=1000,
+        help="How many milliseconds to consider snapping to. Defaults to 1000ms.",
+    )
+    
+    parser.add_argument(
+        "--fps", type=float, default=23.976,
+        help="FPS of the video. Defaults to 23.976.",
+    )
+    
+    args = parser.parse_args()
+    
+    if args.output is None:
+        args.output = args.input.with_name(args.input.stem + "_snapped.txt")
+        
+    return args
+
 def parse_srt_time(string):
     hours, minutes, seconds, milliseconds = map(int, re.match(r"(\d+):(\d+):(\d+)\.(\d+)", string).groups())
     return hours * 3600000 + minutes * 60000 + seconds * 1000 + milliseconds 
         
 def parse_scxvid_keyframes(text):
-    return [i-3 for i,line in enumerate(text.splitlines()) if line and line[0] == 'i']
+    return [i-3 for i,line in enumerate(text.splitlines()) if line and line[0] == "i"]
         
 def parse_keyframes(path):
     with open(path) as file_object:
         text = file_object.read()
-    if text.find('# XviD 2pass stat file')>=0:
+    if text.find("# XviD 2pass stat file")>=0:
         frames = parse_scxvid_keyframes(text)
     else:
-        raise Exception('Unsupported keyframes type')
+        raise Exception("Unsupported keyframes type")
     if 0 not in frames:
         frames.insert(0, 0)
     return frames
@@ -95,15 +129,15 @@ class Timecodes(object):
         if not lines:
             return []
         first = lines[0].lower().lstrip()
-        if first.startswith('# timecode format v2'):
+        if first.startswith("# timecode format v2"):
             tcs = [x for x in lines[1:]]
             return Timecodes(tcs, None)
-        elif first.startswith('# timecode format v1'):
-            default = float(lines[1].lower().replace('assume ', ""))
-            overrides = (x.split(',') for x in lines[2:])
+        elif first.startswith("# timecode format v1"):
+            default = float(lines[1].lower().replace("assume ", ""))
+            overrides = (x.split(",") for x in lines[2:])
             return Timecodes(cls._convert_v1_to_v2(default, overrides), default)
         else:
-            raise Exception('This timecodes format is not supported')
+            raise Exception("This timecodes format is not supported")
 
     @classmethod
     def from_file(cls, path):
@@ -121,74 +155,41 @@ def get_closest_kf(frame, keyframes):
     if idx == 0 or keyframes[idx] - frame < frame - (keyframes[idx-1]):
         return keyframes[idx]
     return keyframes[idx-1]
-    
-def main():
-    parser = argparse.ArgumentParser(description="Snap chapters to nearest keyframe.")
-    parser.add_argument(
-        "--input", "-i", type=Path, required=True,
-        help="Chapter file. Must be in simple format.",
-    )
-    
-    parser.add_argument(
-        "--keyframes", "-kf", type=Path, required=True,
-        help="SCXvid keyframes. Try to have minimal mkv delay or it might not line up.",
-    )
-    
-    parser.add_argument(
-        "--output", "-o", type=Path,
-        help="Output chapter file. Defaults to where input is.",
-    )
-    
-    parser.add_argument(
-        "--snap-ms", "-s", type=int, default=1000,
-        help="How many milliseconds to consider snapping to. Defaults to 1000ms.",
-    )
-    
-    parser.add_argument(
-        "--fps", type=float, default=23.976,
-        help="FPS of the video. Defaults to 23.976.",
-    )
-    
-    args = parser.parse_args()
-    chapter_path = args.input
-    keyframes_path = args.keyframes
-    out_path = args.output
-    snap_ms = args.snap_ms
-    fps = args.fps
-    
-    if out_path is None:
-        out_path = chapter_path.with_name(chapter_path.stem + "_snapped.txt")
-    
-    timecodes = Timecodes.cfr(fps)
-    keyframes_list = parse_keyframes(keyframes_path)
-    
-    with open(chapter_path, "r") as chapter_file:
-        chapter_read = chapter_file.readlines()
-        
+
+def validate_chapters(chapter_read):
     if not chapter_read[0].startswith("CHAPTER01="):
         print("Invalid chapter format.", file=sys.stderr)
         sys.exit(1)
         
-    chapter_build = []
-    for idx, line in enumerate(chapter_read):
+def apply(chapter_lines, timecodes, keyframes_list, snap_ms):
+    for idx, line in enumerate(chapter_lines):
         if idx % 2 == 0:
             chapter_split = line.split("=")
             start_ms = parse_srt_time(chapter_split[1])
             start_frame = timecodes.get_frame_number(start_ms, timecodes.TIMESTAMP_START)
             closest_frame = get_closest_kf(start_frame, keyframes_list)
             closest_time = timecodes.get_frame_time(closest_frame, timecodes.TIMESTAMP_START)
+            
             if abs(closest_time - start_ms) <= snap_ms and start_ms != 0:
                 start_ms = max(0, closest_time)
                 timesec = start_ms/1000
                 timestamp = time.strftime(f"%H:%M:%S.{round(timesec%1*1000):03}", time.gmtime(timesec))
-                chapter_build.append(f"{chapter_split[0]}={timestamp}\n")
-            else:
-                chapter_build.append(line)
-        else:
-            chapter_build.append(line)
-            
-    with open(out_path, "w") as out_file:
-        out_file.writelines(chapter_build)    
+                chapter_lines[idx] = f"{chapter_split[0]}={timestamp}\n"
     
-if __name__ == '__main__':
+def main():
+    args = parse_args()
+    
+    timecodes = Timecodes.cfr(args.fps)
+    keyframes_list = parse_keyframes(args.keyframes)
+    
+    with open(args.input, "r") as chapter_file:
+        chapter_lines = chapter_file.readlines()
+        
+    validate_chapters(chapter_lines)
+    apply(chapter_lines, timecodes, keyframes_list, args.snap_ms)
+            
+    with open(args.output, "w") as out_file:
+        out_file.writelines(chapter_lines)    
+    
+if __name__ == "__main__":
     main()

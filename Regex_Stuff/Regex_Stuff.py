@@ -1,9 +1,9 @@
-# Regex Stuff V2.0
+# Regex Stuff V2.1
 import sys
 import re
 
 def line2dict(line):
-    line_pattern = re.compile(r'(?P<Format>[^:]*): ?(?P<Layer>\d*), ?(?P<Start>[^,]*), ?(?P<End>[^,]*), ?(?P<Style>[^,]*), ?(?P<Name>[^,]*), ?(?P<MarginL>[^,]*), ?(?P<MarginR>[^,]*), ?(?P<MarginV>[^,]*), ?(?P<Effect>[^,]*),(?P<Text>.*\n)')
+    line_pattern = re.compile(r"(?P<Format>[^:]*): ?(?P<Layer>\d*), ?(?P<Start>[^,]*), ?(?P<End>[^,]*), ?(?P<Style>[^,]*), ?(?P<Name>[^,]*), ?(?P<MarginL>[^,]*), ?(?P<MarginR>[^,]*), ?(?P<MarginV>[^,]*), ?(?P<Effect>[^,]*),(?P<Text>.*\n)")
     """pull fields out of ass event into dictionary
     takes string line as argument and returns dictionary or None if line is not an ASS event"""
     # print(line) # <- fun UnicodeEncodeErrors!
@@ -76,7 +76,7 @@ def fix_long_lines(d):
     
     if not "}-" in d["Text"]: # Caption line that is -Title of Something-
         if not d["Style"].startswith("Caption"):
-            pattern = re.compile(r'\\N')
+            pattern = re.compile(r"\\N")
             occurrences = pattern.findall(d["Text"])
             if len(occurrences) >= 2:
                 d["Text"] = re.sub(r"\\N", " ", d["Text"])
@@ -110,7 +110,7 @@ def fix_layers(d):
  
 def main(inpath, outpath):
     lines_list = list()
-    with open(inpath, encoding='utf-8') as infile:
+    with open(inpath, encoding="utf-8") as infile:
         lines_list = infile.readlines()
     
     fix_incorrect_songs_style(lines_list)
@@ -121,11 +121,11 @@ def main(inpath, outpath):
     apply_fix(lines_list, fix_symbols)
     apply_fix(lines_list, fix_layers)
 
-    with open(outpath, 'w', encoding='utf-8') as outfile:
+    with open(outpath, "w", encoding="utf-8") as outfile:
         outfile.writelines(lines_list)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     if len(sys.argv) != 3:
-        sys.exit(f'Usage: {sys.argv[0]} infile.ass outfile.ass')
+        sys.exit(f"Usage: {sys.argv[0]} infile.ass outfile.ass")
 
     main(sys.argv[1], sys.argv[2])
