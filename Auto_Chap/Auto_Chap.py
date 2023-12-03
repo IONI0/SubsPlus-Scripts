@@ -1,4 +1,4 @@
-# Auto Chap V2.1
+# Auto Chap V2.2
 import sys
 import json
 import os
@@ -276,11 +276,26 @@ def try_download(args, t_path):
             print(f"Couldn't access api or download", file=sys.stderr)
             
 def match_themes(args, t_path):
+    matched_OP = False
+    matched_ED = False
     offset_list = []
     for theme_file in os.scandir(t_path): # TODO: More inteligent ordering could save some time
         if ".ogg" in str(theme_file) and len(offset_list) < 4:
+            theme_name = os.path.splitext(Path(theme_file.path).name)[0]
+            if "OP" in theme_name and matched_OP:
+                print(f"Already matched an OP, skipping {theme_name}", file=sys.stderr)
+                continue
+            elif "ED" in theme_name and matched_ED:
+                print(f"Already matched an ED, skipping {theme_name}", file=sys.stderr)
+                continue
+            
             offset1, offset2 = (find_offset(args.input, Path(theme_file.path), t_path, args.charts))
+            
             if offset1 != None:
+                if "OP" in theme_name:
+                    matched_OP = True
+                elif "ED" in theme_name:
+                    matched_ED = True
                 offset_list.append(offset1)
                 offset_list.append(offset2)
     
