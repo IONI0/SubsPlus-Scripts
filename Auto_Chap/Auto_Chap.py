@@ -1,4 +1,4 @@
-# Auto Chap V2.2
+# Auto Chap V3.0
 import sys
 import json
 import os
@@ -7,6 +7,7 @@ import time
 import warnings
 import argparse
 import shutil
+import math
 from pathlib import Path
 import requests
 
@@ -35,6 +36,16 @@ def parse_args():
     parser.add_argument(
         "--search-name", "-s", type=str,
         help="Search to pass to animethemes.moe Example: Spy Classroom Season 2. To only use themes that are already downloaded, don't add this argument.",
+    )
+    
+    parser.add_argument(
+        "--year", type=int,
+        help="Release year to help filter the search. Put the negative number to allow that year or later.",
+    )
+    
+    parser.add_argument(
+        "--snap", type=int,
+        help="Milisecond window to snap to nearest keyframe for frame-perfect chapters. Efficiently generates necessary keyframes from video.",
     )
     
     parser.add_argument(
@@ -76,8 +87,14 @@ def make_folders(work_path):
     shutil.rmtree(subdirectory_path, ignore_errors=True)
     subdirectory_path.mkdir(parents=True)
 
-def get_series_json(search_name):
-    global_search = requests.get(f"https://api.animethemes.moe/search?q={urllib.parse.quote(search_name)}").json()
+def get_series_json(args):
+    api_search_call = f"https://api.animethemes.moe/search?q={urllib.parse.quote(args.search_name)}"
+    if args.year:
+        if args.year < 0:
+            api_search_call += f"&filter[year-gte]={abs(args.year)}"
+        else:
+            api_search_call += f"&filter[year-gte]={args.year}"
+    global_search = requests.get(api_search_call).json()
     series_slug = global_search["search"]["anime"][0]["slug"]
     series_json = requests.get(f"https://api.animethemes.moe/anime/{series_slug}?include=animethemes.animethemeentries.videos.audio").json()
     return series_json["anime"]
@@ -87,7 +104,7 @@ def download_themes(t_path, series_json):
     try:
         with open(os.path.join(t_path, "data.json")) as data:
             stored_data = json.load(data)
-    except:
+    except Exception:
         stored_data = {}
     
     # Reset themes if series different from last time 
@@ -116,7 +133,7 @@ def download_themes(t_path, series_json):
                             break_flag = True
                             print(f"Already have {cur_theme}, skipping download", file=sys.stderr)
                             break
-                    except:
+                    except Exception:
                         pass
                     
                     stored_data[cur_theme] = video["audio"]["updated_at"]  
@@ -137,7 +154,7 @@ def download_themes(t_path, series_json):
 def find_offset(within_file, find_file, t_path, make_charts, window = 30): # Change window size for accuracy
     try:
         y_within, sr_within = librosa.load(within_file, sr=None)
-    except:
+    except Exception:
         print("Could not load input file", file=sys.stderr)
         sys.exit(1)
     y_find, _ = librosa.load(find_file, sr=sr_within)
@@ -146,7 +163,7 @@ def find_offset(within_file, find_file, t_path, make_charts, window = 30): # Cha
 
     try:
         c = signal.correlate(y_within, y_find[:sr_within*window], mode="valid", method="fft")
-    except:
+    except Exception:
         print(f"{theme_name} Error in correlate. Continuing...", file=sys.stderr)
         return None, None
     
@@ -158,7 +175,7 @@ def find_offset(within_file, find_file, t_path, make_charts, window = 30): # Cha
         try:
             fig, ax = plt.subplots()
             ax.plot(c)
-        except:
+        except Exception:
             print(f"{theme_name} Could not plot figure", file=sys.stderr)
     
     duration = librosa.get_duration(filename=find_file)
@@ -168,7 +185,7 @@ def find_offset(within_file, find_file, t_path, make_charts, window = 30): # Cha
         if make_charts:
             try:
                 fig.savefig(os.path.join(f"{t_path}", "charts", f"{theme_name}_matched.png"))
-            except:
+            except Exception:
                 print(f"{theme_name} Could not save figure", file=sys.stderr)
         return offset, (offset + duration)
     
@@ -177,7 +194,7 @@ def find_offset(within_file, find_file, t_path, make_charts, window = 30): # Cha
         if make_charts:
             try:
                 fig.savefig(os.path.join(f"{t_path}", "charts", f"{theme_name}.png"))
-            except:
+            except Exception:
                 print(f"{theme_name} Could not save figure", file=sys.stderr)
         return None, None
     
@@ -270,9 +287,9 @@ def validate_themes(args, t_path):
 def try_download(args, t_path):
     if not args.no_download:
         try:
-            series_json = get_series_json(args.search_name)
+            series_json = get_series_json(args)
             download_themes(t_path, series_json)
-        except:
+        except Exception:
             print(f"Couldn't access api or download", file=sys.stderr)
             
 def match_themes(args, t_path):
@@ -300,7 +317,92 @@ def match_themes(args, t_path):
                 offset_list.append(offset2)
     
     return offset_list
-                
+
+def time_to_frame(timesec, framerate, floor = True):
+    frame = timesec * framerate
+    if floor:
+        return math.floor(frame)
+    else:
+        return math.ceil(frame)
+
+def frame_to_time(frame, framerate, floor = True):
+    if floor:
+        middle_frame = max(0, frame - 0.5)
+    else:
+        middle_frame = frame + 0.5
+
+    secs = middle_frame / framerate
+
+    return secs
+
+def generate_search_pattern(frame, window, clip_length):
+    result = [window + 1]
+
+    for i in range(1, window + 1):
+        result.append(window + 1 - i)
+        result.append(window + 1 + i)
+
+    return result
+
+def get_keyframe_frame(frame, snap_window_frames, clip_length, clip, core):
+    # Generate the keyframes in range with one more at the beginning since the first is always keyframe
+    # Scxvid needs to go sequentially and wwxd is inaccurate in testing
+    trimmed_clip = clip[max(frame - snap_window_frames - 1, 0):min(frame + snap_window_frames, clip_length)]
+    try:
+        scxvid_clip = core.scxvid.Scxvid(trimmed_clip)
+    except Exception:
+        raise ImportError("You need to install Scxvid in vapoursynth plugins\n"
+                          "https://github.com/dubhater/vapoursynth-scxvid")
+    
+    search_pattern = generate_search_pattern(frame, snap_window_frames, trimmed_clip.num_frames)
+    for i in search_pattern:
+        if i <= 0 or i >= trimmed_clip.num_frames:
+            continue
+        actual_frame = frame - snap_window_frames - 1 + i
+        props = scxvid_clip.get_frame(i).props
+        scenechange = props._SceneChangePrev
+        if scenechange:
+            return actual_frame
+
+def snap(args, offset_list):
+    try:
+        import vapoursynth as vs
+        from vapoursynth import core
+    except Exception:
+        raise ImportError("You need to install in vapoursynth for snapping\n"
+                          "https://github.com/vapoursynth/vapoursynth")
+        
+    try:
+        clip = core.ffms2.Source(source=args.input, cache=False)
+    except Exception:
+        raise ImportError("You need to install ffms2 in vapoursynth plugins\n"
+                          "https://github.com/FFMS/ffms2")
+        
+    clip = core.resize.Bilinear(clip, 640, 360, format=vs.YUV420P8)
+    
+    clip_length = clip.num_frames
+    fps = float(clip.fps.numerator) / float(clip.fps.denominator)
+    
+    snapped_offsets = []
+    for offset in offset_list:
+        offset_frame =  time_to_frame(offset, fps, floor=False)
+        snap_window_frames = round(args.snap / 1000 * fps)
+        snap_frame = get_keyframe_frame(offset_frame, snap_window_frames, clip_length, clip, core)
+        
+        if snap_frame:
+            snapped_offsets.append(frame_to_time(snap_frame, fps, floor=True))
+        else:
+            snapped_offsets.append(offset)
+    
+    return snapped_offsets
+
+def print_snapped_times(offset_list):
+    print("Snapped times:", file=sys.stderr)
+    print(f"{get_timestamp(offset_list[0])} -> {get_timestamp(offset_list[1])}", file=sys.stderr)
+    
+    if len(offset_list) == 4:
+        print(f"{get_timestamp(offset_list[2])} -> {get_timestamp(offset_list[3])}", file=sys.stderr)
+            
 def main():
     args = parse_args()
     t_path = os.path.join(args.work_path, ".themes") 
@@ -313,6 +415,9 @@ def main():
     file_duration = librosa.get_duration(filename=args.input)
     offset_list.sort()
     if chapter_validator(offset_list, file_duration):  
+        if args.snap:
+            offset_list = snap(args, offset_list)
+            print_snapped_times(offset_list)
         generate_chapters(offset_list, file_duration, args.output)
     
     if args.delete_themes:

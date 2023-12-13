@@ -17,11 +17,16 @@ Generate chapters by matching themes downloaded from [AnimeThemes](https://anime
 pip install -r requirements.txt
 ```
 
+If you want frame-perfect chapters using `--snap`, keyframe generation requires:
+- https://github.com/vapoursynth/vapoursynth
+- https://github.com/FFMS/ffms2 (Install in vapoursynth plugins)
+- https://github.com/dubhater/vapoursynth-scxvid (Install in vapoursynth plugins)
+
 #### Usage
 ```console
 $ python Auto_Chap.py --help
-usage: Auto_Chap.py [-h] --input INPUT [--search-name SEARCH_NAME] [--work-path WORK_PATH] [--output OUTPUT]
-                    [--delete-themes] [--charts]
+usage: Auto_Chap.py [-h] --input INPUT [--search-name SEARCH_NAME] [--year YEAR] [--snap SNAP] [--work-path WORK_PATH]
+                    [--output OUTPUT] [--delete-themes] [--charts]
 
 Automatic anime chapter generator using animethemes.
 
@@ -32,6 +37,9 @@ options:
   --search-name SEARCH_NAME, -s SEARCH_NAME
                         Search to pass to animethemes.moe Example: Spy Classroom Season 2. To only use themes that are
                         already downloaded, don't add this argument.
+  --year YEAR           Release year to help filter the search. Put the negative number to allow that year or later.
+  --snap SNAP           Milisecond window to snap to nearest keyframe for frame-perfect chapters. Efficiently
+                        generates necessary keyframes from video.
   --work-path WORK_PATH, -w WORK_PATH
                         Place to create a .themes folder for storing persistant information per series. Defaults to
                         where the episode is.
@@ -62,6 +70,17 @@ Run with themes predownloaded (in `.ogg` and in `.themes` folder).
 ```
 python Auto_Chap.py -i "Dangers in My Heart - 01.mkv"
 ```
+
+Filter search for shows that released on or after 2023.
+```
+python Auto_Chap.py -i "Shangri-la Frontier - 01.mkv" -s "Shangri-la frontier Season 1" --year -2023
+```
+
+Snap to nearest keyframe within 1000ms for frame-perfect chapters.
+```
+python Auto_Chap.py -i "Dangers in My Heart - 01.mkv" -s "Dangers in My Heart Season 1" --snap 1000
+```
+
 Chapter names can be changed at the top of the script.
 ```python
 PRE_OP = "Prologue"
@@ -74,7 +93,7 @@ POST_ED = "Epilogue"
 ---
 
 ### Chapter_Snapper
-Snap chapter file to nearest keyframe. Chapter file must be in simple chapter format.
+Snap chapter file to nearest keyframe using existing scxvid keyframes. Chapter file must be in simple chapter format. Now somewhat depreciated with keyframe generation in Auto_Chap.
 
 #### Usage
 ```console
@@ -132,7 +151,7 @@ python Hidive_Splitter.py infile.ass outfile.ass
 ---
 
 ### P-Proper_Stutter
-Capitalise and fix stutters:
+Capitalize and fix stutters:
 - F-f-find -> F-F-Find
 - Sh-she -> Sh-She
 - W-when -> Wh-When
@@ -161,7 +180,9 @@ python Regex_Stuff.py infile.ass outfile.ass
 ```
 
 ## Acknowledgements
-- [Audio Offset](https://github.com/hiisi13/audio-offset-finder) for finding themes within an episode
+- [hiisi13/Audio Offset](https://github.com/hiisi13/audio-offset-finder) for finding themes within an episode
 - [AnimeThemes](https://animethemes.moe) api for getting themes
 - [iamevn](https://gist.github.com/iamevn/6d796a1c8296ac325da4545fd20caf2f) ass parsing code
 - [tp7/Prass](https://github.com/tp7/Prass) keyframe snapping code for Chapter_Snapper
+- [Myaamori/keyframes.py](https://gist.github.com/Myaamori/dfb0030fd4ee44364ca3b0c2c9c9b4aa) inspiration for auto_chap keyframes generation
+- [FichteFoll/snap_scenechanges.py](https://gist.github.com/FichteFoll/9184e0ef75df71d7da184c485caf5266) functions and logic for converting frames to time, etc. in auto_chap snapping
