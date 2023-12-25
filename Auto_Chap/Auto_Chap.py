@@ -1,4 +1,4 @@
-# Auto Chap V3.0
+# Auto Chap V3.1
 import sys
 import json
 import os
@@ -23,11 +23,15 @@ EPISODE = "Episode"
 ENDING = "Ending"
 POST_ED = "Epilogue"
 
+# Seconds window to snap chapters to beginning or end of episode
+episode_snap_sec = 4 
+
+# Ignore librosa warnings about audioread. Basically this will break with librosa 1.0 when they remove it
 warnings.filterwarnings("ignore", category=FutureWarning) 
 warnings.filterwarnings("ignore", category=UserWarning)
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Automatic anime chapter generator using animethemes.")
+    parser = argparse.ArgumentParser(description="Automatic anime chapter generator using AnimeThemes.")
     parser.add_argument(
         "--input", "-i", type=Path, required=True,
         help="Video/Audio file.",
@@ -44,8 +48,8 @@ def parse_args():
     )
     
     parser.add_argument(
-        "--snap", type=int,
-        help="Milisecond window to snap to nearest keyframe for frame-perfect chapters. Efficiently generates necessary keyframes from video.",
+        "--snap", type=int, nargs='?', const=1000, default=None,
+        help="Milisecond window to snap to nearest keyframe for frame-perfect chapters. Efficiently generates necessary keyframes from video. Defaults to 1000ms if no value added. Values higher than about 1000 currently crash.",
     )
     
     parser.add_argument(
@@ -80,6 +84,11 @@ def parse_args():
     if args.output is None:
         args.output = args.input.with_name(args.input.stem + ".chapters.txt")
         
+    if args.snap is not None:
+        if args.snap > 1000:
+            print("Snap values higher than about 1000 currently crash SCXvid. Please lower it.", file=sys.stderr)
+            sys.exit(1)
+        
     return args
 
 def make_folders(work_path):
@@ -100,7 +109,6 @@ def get_series_json(args):
     return series_json["anime"]
 
 def download_themes(t_path, series_json):
-    print(f'Animethemes matched series: {series_json["name"]}', file=sys.stderr)
     try:
         with open(os.path.join(t_path, "data.json")) as data:
             stored_data = json.load(data)
@@ -118,10 +126,9 @@ def download_themes(t_path, series_json):
     
     for theme in series_json["animethemes"]:
         break_flag = False
-        if theme["sequence"] == None:
-            cur_theme = theme["type"] + "1" 
-        else:
-            cur_theme = theme["type"] + str(theme["sequence"]) # OP1 or ED3, etc.
+        cur_theme = theme["slug"] # OP1 or ED3, etc.
+        if not cur_theme[-1].isdigit():
+            cur_theme = cur_theme + "1" 
         for version in theme["animethemeentries"]: # Different video versions of theme, no audio difference (I think)
             if break_flag: 
                 break
@@ -136,66 +143,81 @@ def download_themes(t_path, series_json):
                     except Exception:
                         pass
                     
-                    stored_data[cur_theme] = video["audio"]["updated_at"]  
+                    stored_data[cur_theme] = video["audio"]["updated_at"]
+                    print(f"Downloading {cur_theme}...", end="", flush=True)  
                     response = requests.get(video["audio"]["link"])
                     if response.status_code == 200:
                         with open(f'{t_path}/{cur_theme}.ogg', "wb") as file:
                             file.write(response.content)
-                        print(f"{cur_theme} downloaded", file=sys.stderr)
+                        print(f"\r{cur_theme} downloaded     ", file=sys.stderr)
                     else:
-                        print("Failed to download video. Status code:", response.status_code, file=sys.stderr)
+                        print(f"\rFailed to download {cur_theme}. Status code:", response.status_code, file=sys.stderr)
                         
                     break_flag = True # Continue to next theme
                     break
-                           
+                                     
     with open(os.path.join(t_path, "data.json"), "w") as outfile:
-        json.dump(stored_data, outfile)
+        json.dump(stored_data, outfile)     
+
+def generate_chart(theme_name, c, t_path, matched=True):
+    try:
+        print(f"Generating chart for {theme_name}...", end="", flush=True)
+        fig, ax = plt.subplots()
+        ax.plot(c)
+    except Exception:
+        print(f"\r{theme_name} could not plot figure         ", file=sys.stderr)
+        return
+        
+    try:
+        if matched:
+            fig.savefig(os.path.join(f"{t_path}", "charts", f"{theme_name}_matched.png"))
+        else:
+            fig.savefig(os.path.join(f"{t_path}", "charts", f"{theme_name}.png"))
+    except Exception:
+        print(f"\r{theme_name} could not save figure           ", file=sys.stderr)
+        return
+    
+    print(f"\r{theme_name} chart generated           ")
 
 def find_offset(within_file, find_file, t_path, make_charts, window = 30): # Change window size for accuracy
+    theme_name = os.path.splitext(find_file.name)[0]
+    
+    print(f"Matching {theme_name}...", end="", flush=True)
+    
     try:
         y_within, sr_within = librosa.load(within_file, sr=None)
     except Exception:
-        print("Could not load input file", file=sys.stderr)
+        print("\nCould not load input file", file=sys.stderr)
         sys.exit(1)
     y_find, _ = librosa.load(find_file, sr=sr_within)
     
-    theme_name = os.path.splitext(find_file.name)[0]
+    silence = np.zeros(5 * sr_within) # 5 secs silence prepended to fix matches at the beginning of episode
+    within_adjust = np.concatenate((silence, y_within))
 
     try:
-        c = signal.correlate(y_within, y_find[:sr_within*window], mode="valid", method="fft")
+        c = signal.correlate(within_adjust, y_find[:sr_within*window], mode="valid", method="fft")
     except Exception:
-        print(f"{theme_name} Error in correlate. Continuing...", file=sys.stderr)
+        print(f"\r{theme_name} error in correlate. Continuing...", file=sys.stderr)
         return None, None
     
-    peak = np.argmax(c)
+    required_score = 1000 # To prevent false positives. Number is a bit arbitrary 
+    
+    match_idx = np.argmax(c) # First one to be over 1000
     score = np.max(c)
-    offset = round(peak / sr_within, 2)
-
-    if make_charts:
-        try:
-            fig, ax = plt.subplots()
-            ax.plot(c)
-        except Exception:
-            print(f"{theme_name} Could not plot figure", file=sys.stderr)
+    offset = max(round(match_idx / sr_within, 2) - 5, 0)
+        
+    duration = librosa.get_duration(path=find_file)
     
-    duration = librosa.get_duration(filename=find_file)
-    
-    if score > 1000: # To prevent false positives. Number is a bit arbitrary 
-        print(f"{theme_name} matched from {get_timestamp(offset)} -> {get_timestamp(offset + duration)}", file=sys.stderr)
+    if score > required_score: 
+        print(f"\r{theme_name} matched from {get_timestamp(offset)} -> {get_timestamp(offset + duration)}", file=sys.stderr)
         if make_charts:
-            try:
-                fig.savefig(os.path.join(f"{t_path}", "charts", f"{theme_name}_matched.png"))
-            except Exception:
-                print(f"{theme_name} Could not save figure", file=sys.stderr)
+            generate_chart(theme_name, c, t_path, True)
         return offset, (offset + duration)
     
     else:
-        print(f"{theme_name} not matched", file=sys.stderr)
+        print(f"\r{theme_name} not matched       ", file=sys.stderr)
         if make_charts:
-            try:
-                fig.savefig(os.path.join(f"{t_path}", "charts", f"{theme_name}.png"))
-            except Exception:
-                print(f"{theme_name} Could not save figure", file=sys.stderr)
+            generate_chart(theme_name, c, t_path, False)
         return None, None
     
 def get_timestamp(timesec):
@@ -222,17 +244,15 @@ def chapter_validator(offset_list, file_duration):
         return False
         
 def generate_chapters(offset_list, file_duration, out_path):
-    snapping_distance = 4 # seconds to snap to beginning or end
-    
     outfile = open(out_path, "w", encoding="utf-8")
     snap_beginning = False
     snap_end = False
     ed_only = False
     
-    if offset_list[0] < snapping_distance:
+    if offset_list[0] < episode_snap_sec:
         snap_beginning = True
     
-    if offset_list[-1] > (file_duration - snapping_distance):
+    if offset_list[-1] > (file_duration - episode_snap_sec):
         snap_end = True 
         
     if offset_list[0] < (file_duration / 2):
@@ -286,11 +306,13 @@ def validate_themes(args, t_path):
         
 def try_download(args, t_path):
     if not args.no_download:
+        print("Searching AnimeThemes...", end="", flush=True)
         try:
             series_json = get_series_json(args)
+            print(f'\rAnimeThemes matched series: {series_json["name"]}', file=sys.stderr)
             download_themes(t_path, series_json)
         except Exception:
-            print(f"Couldn't access api or download", file=sys.stderr)
+            print(f"\rCouldn't access api or download", file=sys.stderr)
             
 def match_themes(args, t_path):
     matched_OP = False
@@ -335,7 +357,7 @@ def frame_to_time(frame, framerate, floor = True):
 
     return secs
 
-def generate_search_pattern(frame, window, clip_length):
+def generate_search_pattern(window):
     result = [window + 1]
 
     for i in range(1, window + 1):
@@ -347,14 +369,18 @@ def generate_search_pattern(frame, window, clip_length):
 def get_keyframe_frame(frame, snap_window_frames, clip_length, clip, core):
     # Generate the keyframes in range with one more at the beginning since the first is always keyframe
     # Scxvid needs to go sequentially and wwxd is inaccurate in testing
-    trimmed_clip = clip[max(frame - snap_window_frames - 1, 0):min(frame + snap_window_frames, clip_length)]
+    search_start_frame = max(frame - snap_window_frames - 1, 0)
+    search_end_frame = min(frame + snap_window_frames, clip_length) # Should already be one more than the last index
+    if search_start_frame >= search_end_frame:
+        return
+    trimmed_clip = clip[search_start_frame:search_end_frame]
     try:
         scxvid_clip = core.scxvid.Scxvid(trimmed_clip)
     except Exception:
         raise ImportError("You need to install Scxvid in vapoursynth plugins\n"
                           "https://github.com/dubhater/vapoursynth-scxvid")
     
-    search_pattern = generate_search_pattern(frame, snap_window_frames, trimmed_clip.num_frames)
+    search_pattern = generate_search_pattern(snap_window_frames)
     for i in search_pattern:
         if i <= 0 or i >= trimmed_clip.num_frames:
             continue
@@ -375,9 +401,11 @@ def snap(args, offset_list):
     try:
         clip = core.ffms2.Source(source=args.input, cache=False)
     except Exception:
-        raise ImportError("You need to install ffms2 in vapoursynth plugins\n"
+        raise ImportError("Could not load video or you haven't installed ffms2 in vapoursynth plugins for snapping\n"
                           "https://github.com/FFMS/ffms2")
-        
+    
+    print(f"Snapping chapters...", end="", flush=True)
+    
     clip = core.resize.Bilinear(clip, 640, 360, format=vs.YUV420P8)
     
     clip_length = clip.num_frames
@@ -396,12 +424,21 @@ def snap(args, offset_list):
     
     return snapped_offsets
 
-def print_snapped_times(offset_list):
-    print("Snapped times:", file=sys.stderr)
-    print(f"{get_timestamp(offset_list[0])} -> {get_timestamp(offset_list[1])}", file=sys.stderr)
+def print_snapped_times(offset_list, file_duration):
+    print("\rSnapped times:        ", file=sys.stderr)
     
-    if len(offset_list) == 4:
-        print(f"{get_timestamp(offset_list[2])} -> {get_timestamp(offset_list[3])}", file=sys.stderr)
+    # Episode duration snapping
+    ep_snapped_offsets = offset_list.copy()
+    if ep_snapped_offsets[0] < episode_snap_sec:
+        ep_snapped_offsets[0] = 0
+    
+    if ep_snapped_offsets[-1] > (file_duration - episode_snap_sec):
+        ep_snapped_offsets[-1] = file_duration
+        
+    print(f"{get_timestamp(ep_snapped_offsets[0])} -> {get_timestamp(ep_snapped_offsets[1])}", file=sys.stderr)
+    
+    if len(ep_snapped_offsets) == 4:
+        print(f"{get_timestamp(ep_snapped_offsets[2])} -> {get_timestamp(ep_snapped_offsets[3])}", file=sys.stderr)
             
 def main():
     args = parse_args()
@@ -413,11 +450,12 @@ def main():
     offset_list = match_themes(args, t_path)
     
     file_duration = librosa.get_duration(filename=args.input)
+    
     offset_list.sort()
     if chapter_validator(offset_list, file_duration):  
         if args.snap:
             offset_list = snap(args, offset_list)
-            print_snapped_times(offset_list)
+            print_snapped_times(offset_list, file_duration)
         generate_chapters(offset_list, file_duration, args.output)
     
     if args.delete_themes:

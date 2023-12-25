@@ -10,7 +10,9 @@ These scripts are first and foremost made for SubsPlus+ releases and Hidive subt
 
 ### Auto_Chap
 
-Generate chapters by matching themes downloaded from [AnimeThemes](https://animethemes.moe) to the episode. It creates a `.themes` folder with the downloaded themes for future runs and charts showing where the themes matched in the episode. Chapters will not be generated if 0 or more than 2 themes are matched, or 2 themes are in the same half of the episode.
+Generate chapters by matching themes downloaded from [AnimeThemes](https://animethemes.moe) to the episode. 
+
+It creates a `.themes` folder with the downloaded themes for future runs and charts showing where the themes matched in the episode. Chapters will not be generated if no matches or more than 2 themes are matched, or 2 themes are in the same half of the episode. Themes tagged with `Transition` or `Over` on animethemes will not be downloaded and non-conventional themes like Oshi no Ko will likely not work as intended.
 
 #### Dependencies
 ```
@@ -25,10 +27,10 @@ If you want frame-perfect chapters using `--snap`, keyframe generation requires:
 #### Usage
 ```console
 $ python Auto_Chap.py --help
-usage: Auto_Chap.py [-h] --input INPUT [--search-name SEARCH_NAME] [--year YEAR] [--snap SNAP] [--work-path WORK_PATH]
-                    [--output OUTPUT] [--delete-themes] [--charts]
+usage: Auto_Chap.py [-h] --input INPUT [--search-name SEARCH_NAME] [--year YEAR] [--snap [SNAP]]
+                    [--work-path WORK_PATH] [--output OUTPUT] [--delete-themes] [--charts]
 
-Automatic anime chapter generator using animethemes.
+Automatic anime chapter generator using AnimeThemes.
 
 options:
   -h, --help            show this help message and exit
@@ -38,8 +40,9 @@ options:
                         Search to pass to animethemes.moe Example: Spy Classroom Season 2. To only use themes that are
                         already downloaded, don't add this argument.
   --year YEAR           Release year to help filter the search. Put the negative number to allow that year or later.
-  --snap SNAP           Milisecond window to snap to nearest keyframe for frame-perfect chapters. Efficiently
-                        generates necessary keyframes from video.
+  --snap [SNAP]         Milisecond window to snap to nearest keyframe for frame-perfect chapters. Efficiently
+                        generates necessary keyframes from video. Defaults to 1000ms if no value added. Values higher
+                        than about 1000 currently crash.
   --work-path WORK_PATH, -w WORK_PATH
                         Place to create a .themes folder for storing persistant information per series. Defaults to
                         where the episode is.
@@ -76,7 +79,7 @@ Filter search for shows that released on or after 2023.
 python Auto_Chap.py -i "Shangri-la Frontier - 01.mkv" -s "Shangri-la frontier Season 1" --year -2023
 ```
 
-Snap to nearest keyframe within 1000ms for frame-perfect chapters.
+Snap to nearest keyframe within 1000ms for frame-perfect chapters. Snap values that are too high don't work for some reason but 1000 should be plenty.
 ```
 python Auto_Chap.py -i "Dangers in My Heart - 01.mkv" -s "Dangers in My Heart Season 1" --snap 1000
 ```
