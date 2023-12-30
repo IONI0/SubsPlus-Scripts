@@ -1,4 +1,4 @@
-# Regex Stuff V2.1
+# Regex Stuff V2.2
 import sys
 import re
 
@@ -52,7 +52,9 @@ def add_song_fad(d):
     return d
 
 def fix_em_dash(d):
-    if not "}-" in d["Text"]: # Caption line that is -Title of Something-
+    # Dash with a space before it is usually em-dash for punctuation. 
+    # The space should be removed before the general replace in the last line
+    if not "}-" in d["Text"]: # Not Caption line that is -Title of Something-
         if not d["Style"].startswith("Caption"):
             d["Text"] = d["Text"].replace(" - ", "—")
             d["Text"] = d["Text"].replace(" -\\N", "—\\N")
@@ -66,6 +68,9 @@ def fix_em_dash(d):
         d["Text"] = d["Text"].replace(" -\n", "—\n")
         d["Text"] = d["Text"].replace("- \n", "— \n")
         d["Text"] = d["Text"].replace("-\n", "—\n")
+        d["Text"] = d["Text"].replace("\\N- ", "\\N—")
+        # d["Text"] = d["Text"].replace("\\N-", "\\N—") # Could be false positive
+        d["Text"] = d["Text"].replace("--", "—")
         if not d["Style"].startswith("Caption"):
             d["Text"] = d["Text"].replace("- ", "— ")
     return d
@@ -87,7 +92,7 @@ def fix_interrobang(d):
     # Replace !? with ?!
     
     d["Text"] = re.sub(r"(?<![?!])(!\?)", r"?!;q;", d["Text"])
-    for i in range(20):
+    for i in range(20): # For odd ammounts like !?! -> ?!?
         d["Text"] = re.sub(r"(?<=[?!])(;q;[!?])", r"?;e;", d["Text"])
         d["Text"] = re.sub(r"(?<=[?!])(;e;[!?])", r"!;q;", d["Text"])
     d["Text"] = d["Text"].replace(";q;", "")
@@ -96,6 +101,7 @@ def fix_interrobang(d):
     return d
                
 def fix_symbols(d):
+    d["Text"] = re.sub("‘", "'", d["Text"])
     d["Text"] = re.sub("’", "'", d["Text"])
     d["Text"] = re.sub("“", '"', d["Text"])
     d["Text"] = re.sub("”", '"', d["Text"])

@@ -96,7 +96,7 @@ POST_ED = "Epilogue"
 ---
 
 ### Chapter_Snapper
-Snap chapter file to nearest keyframe using existing scxvid keyframes. Chapter file must be in simple chapter format. Now somewhat depreciated with keyframe generation in Auto_Chap.
+Snap chapter file to nearest keyframe using existing scxvid keyframes. Chapter file must be in simple chapter format. Useful if you already have keyframes but if not then use the keyframe generation in Auto_Chap.
 
 #### Usage
 ```console
