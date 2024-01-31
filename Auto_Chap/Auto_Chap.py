@@ -1,4 +1,4 @@
-# Auto Chap V3.1
+# Auto Chap V3.2
 import sys
 import json
 import os
@@ -91,6 +91,9 @@ def parse_args():
         
     return args
 
+def print_seperator():
+    print("------------------------------") 
+
 def make_folders(work_path):
     subdirectory_path = work_path / ".themes" / "charts"
     shutil.rmtree(subdirectory_path, ignore_errors=True)
@@ -107,6 +110,19 @@ def get_series_json(args):
     series_slug = global_search["search"]["anime"][0]["slug"]
     series_json = requests.get(f"https://api.animethemes.moe/anime/{series_slug}?include=animethemes.animethemeentries.videos.audio").json()
     return series_json["anime"]
+
+def download_theme(t_path, theme_name, video_json):
+    print(f"{theme_name}: Downloading...", end="", flush=True)
+    # print(video_json["audio"]["link"])  
+    response = requests.get(video_json["audio"]["link"])
+    if response.status_code == 200:
+        download_path = f'{t_path}/{theme_name}'
+        download_path += ".ogg"
+        with open(download_path, "wb") as file:
+            file.write(response.content)
+        print(f"\r{theme_name}: Downloaded     ", file=sys.stderr)
+    else:
+        print(f"\rFailed to download {theme_name}. Status code:", response.status_code, file=sys.stderr)
 
 def download_themes(t_path, series_json):
     try:
@@ -125,47 +141,43 @@ def download_themes(t_path, series_json):
                 os.remove(file_path)
     
     for theme in series_json["animethemes"]:
-        break_flag = False
+        audio_version = 1
+        audio_links = [] 
         cur_theme = theme["slug"] # OP1 or ED3, etc.
         if not cur_theme[-1].isdigit():
             cur_theme = cur_theme + "1" 
-        for version in theme["animethemeentries"]: # Different video versions of theme, no audio difference (I think)
-            if break_flag: 
-                break
+        for version in theme["animethemeentries"]: # Different video versions of theme
+            full_cur_theme = cur_theme
+            if audio_version > 1:
+                full_cur_theme += f"v{audio_version}"
             for video in version["videos"]:
-                
-                if video["overlap"] == "None": # No overs or transitions
-                    try: 
-                        if video["audio"]["updated_at"] == stored_data[cur_theme]:
-                            break_flag = True
-                            print(f"Already have {cur_theme}, skipping download", file=sys.stderr)
+                if video["overlap"] != "None": # No overs or transitions
+                    continue
+                try: # Look to see if it is in data.json or needs an update
+                    if video["audio"]["updated_at"] == stored_data[full_cur_theme] and video["audio"]["link"] not in audio_links and \
+                        os.path.isfile(os.path.join(t_path, full_cur_theme + ".ogg")):
+                            audio_links.append(video["audio"]["link"])
+                            print(f"{full_cur_theme}: Found in directory", file=sys.stderr)
+                            audio_version += 1
                             break
-                    except Exception:
-                        pass
-                    
-                    stored_data[cur_theme] = video["audio"]["updated_at"]
-                    print(f"Downloading {cur_theme}...", end="", flush=True)  
-                    response = requests.get(video["audio"]["link"])
-                    if response.status_code == 200:
-                        with open(f'{t_path}/{cur_theme}.ogg', "wb") as file:
-                            file.write(response.content)
-                        print(f"\r{cur_theme} downloaded     ", file=sys.stderr)
-                    else:
-                        print(f"\rFailed to download {cur_theme}. Status code:", response.status_code, file=sys.stderr)
-                        
-                    break_flag = True # Continue to next theme
-                    break
-                                     
+                except Exception:
+                    pass
+                stored_data[full_cur_theme] = video["audio"]["updated_at"] # Add to data.json
+                if video["audio"]["link"] not in audio_links:
+                    audio_links.append(video["audio"]["link"])
+                    download_theme(t_path, full_cur_theme, video)
+                    audio_version += 1
+                                                     
     with open(os.path.join(t_path, "data.json"), "w") as outfile:
-        json.dump(stored_data, outfile)     
+        json.dump(stored_data, outfile, indent=4)     
 
 def generate_chart(theme_name, c, t_path, matched=True):
     try:
-        print(f"Generating chart for {theme_name}...", end="", flush=True)
+        print(f"{theme_name}: Generating chart...", end="", flush=True)
         fig, ax = plt.subplots()
         ax.plot(c)
     except Exception:
-        print(f"\r{theme_name} could not plot figure         ", file=sys.stderr)
+        print(f"\r{theme_name}: Could not plot figure         ", file=sys.stderr)
         return
         
     try:
@@ -174,15 +186,15 @@ def generate_chart(theme_name, c, t_path, matched=True):
         else:
             fig.savefig(os.path.join(f"{t_path}", "charts", f"{theme_name}.png"))
     except Exception:
-        print(f"\r{theme_name} could not save figure           ", file=sys.stderr)
+        print(f"\r{theme_name}: Could not save figure           ", file=sys.stderr)
         return
     
-    print(f"\r{theme_name} chart generated           ")
+    print(f"\r{theme_name}: Chart generated           ")
 
 def find_offset(within_file, find_file, t_path, make_charts, window = 30): # Change window size for accuracy
     theme_name = os.path.splitext(find_file.name)[0]
     
-    print(f"Matching {theme_name}...", end="", flush=True)
+    print(f"{theme_name}: Matching...", end="", flush=True)
     
     try:
         y_within, sr_within = librosa.load(within_file, sr=None)
@@ -197,7 +209,7 @@ def find_offset(within_file, find_file, t_path, make_charts, window = 30): # Cha
     try:
         c = signal.correlate(within_adjust, y_find[:sr_within*window], mode="valid", method="fft")
     except Exception:
-        print(f"\r{theme_name} error in correlate. Continuing...", file=sys.stderr)
+        print(f"\r{theme_name}: Error in correlate. Continuing...", file=sys.stderr)
         return None, None
     
     required_score = 1000 # To prevent false positives. Number is a bit arbitrary 
@@ -209,13 +221,13 @@ def find_offset(within_file, find_file, t_path, make_charts, window = 30): # Cha
     duration = librosa.get_duration(path=find_file)
     
     if score > required_score: 
-        print(f"\r{theme_name} matched from {get_timestamp(offset)} -> {get_timestamp(offset + duration)}", file=sys.stderr)
+        print(f"\r{theme_name}: Matched from {get_timestamp(offset)} -> {get_timestamp(offset + duration)}", file=sys.stderr)
         if make_charts:
             generate_chart(theme_name, c, t_path, True)
         return offset, (offset + duration)
     
     else:
-        print(f"\r{theme_name} not matched       ", file=sys.stderr)
+        print(f"\r{theme_name}: Not matched       ", file=sys.stderr)
         if make_charts:
             generate_chart(theme_name, c, t_path, False)
         return None, None
@@ -226,20 +238,24 @@ def get_timestamp(timesec):
 
 def chapter_validator(offset_list, file_duration):
     if len(offset_list) == 0:
+        print_seperator()
         print("No matches", file=sys.stderr)
         return False
     elif len(offset_list) == 2:
         return True
     elif len(offset_list) == 4:
         if offset_list[0] > (file_duration / 2) and offset_list[2] > (file_duration / 2):
+            print_seperator()
             print("Chapters not valid. They both start in the second half", file=sys.stderr)
             return False
         elif offset_list[0] < (file_duration / 2) and offset_list[2] < (file_duration / 2):
+            print_seperator()
             print("Chapters not valid. They both start in the first half", file=sys.stderr)
             return False
         else:
             return True
     else:
+        print_seperator()
         print("Chapters not valid. Invalid number of offsets", file=sys.stderr)
         return False
         
@@ -310,7 +326,9 @@ def try_download(args, t_path):
         try:
             series_json = get_series_json(args)
             print(f'\rAnimeThemes matched series: {series_json["name"]}', file=sys.stderr)
+            print_seperator()
             download_themes(t_path, series_json)
+            print_seperator()
         except Exception:
             print(f"\rCouldn't access api or download", file=sys.stderr)
             
@@ -322,10 +340,10 @@ def match_themes(args, t_path):
         if ".ogg" in str(theme_file) and len(offset_list) < 4:
             theme_name = os.path.splitext(Path(theme_file.path).name)[0]
             if "OP" in theme_name and matched_OP:
-                print(f"Already matched an OP, skipping {theme_name}", file=sys.stderr)
+                print(f"{theme_name}: Skipping because already matched an OP", file=sys.stderr)
                 continue
             elif "ED" in theme_name and matched_ED:
-                print(f"Already matched an ED, skipping {theme_name}", file=sys.stderr)
+                print(f"{theme_name}: Skipping because already matched an ED", file=sys.stderr)
                 continue
             
             offset1, offset2 = (find_offset(args.input, Path(theme_file.path), t_path, args.charts))
@@ -454,6 +472,7 @@ def main():
     offset_list.sort()
     if chapter_validator(offset_list, file_duration):  
         if args.snap:
+            print_seperator()
             offset_list = snap(args, offset_list)
             print_snapped_times(offset_list, file_duration)
         generate_chapters(offset_list, file_duration, args.output)

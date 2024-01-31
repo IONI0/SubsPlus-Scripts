@@ -14,6 +14,8 @@ Generate chapters by matching themes downloaded from [AnimeThemes](https://anime
 
 It creates a `.themes` folder with the downloaded themes for future runs and charts showing where the themes matched in the episode. Chapters will not be generated if no matches or more than 2 themes are matched, or 2 themes are in the same half of the episode. Themes tagged with `Transition` or `Over` on animethemes will not be downloaded and non-conventional themes like Oshi no Ko will likely not work as intended.
 
+Note: You should mux with the outputed chapter file with mkvmerge but if you want to manually input chapters then get them from the output chapter file since the times in the logs are not final.
+
 #### Dependencies
 ```
 pip install -r requirements.txt
