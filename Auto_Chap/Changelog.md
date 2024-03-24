@@ -14,6 +14,9 @@
 - Snap now defaults to 1000ms if no value added.
 
 ## V3.2
-- Theme downloading now checks all versions of the theme so that stuff like Friren's cour 2 ED that uses a different part of the same song can now be grabbed.
+- Theme downloading now checks all versions of the theme so that stuff like Frieren's cour 2 ED that uses a different part of the same song can now be grabbed.
 - Redid progress indicators again with separators and better formatted messages.
 - Theme downloader now checks if a theme is actually present in the directory even if data.json says it should be and re-downloads if it is not.
+
+## V3.3
+- Updated to work on new animethemes api. Since "updated_at" times are no longer used, data.json now uses the "filename" data for each theme to keep track of if they need updating. This means every series will have to be updated and themes redownloaded to fit the new data.json format.

@@ -1,4 +1,4 @@
-# Auto Chap V3.2
+# Auto Chap V3.3
 import sys
 import json
 import os
@@ -100,7 +100,7 @@ def make_folders(work_path):
     subdirectory_path.mkdir(parents=True)
 
 def get_series_json(args):
-    api_search_call = f"https://api.animethemes.moe/search?q={urllib.parse.quote(args.search_name)}"
+    api_search_call = f"https://api.animethemes.moe/search?fields[search]=anime&q={urllib.parse.quote(args.search_name)}"
     if args.year:
         if args.year < 0:
             api_search_call += f"&filter[year-gte]={abs(args.year)}"
@@ -113,7 +113,6 @@ def get_series_json(args):
 
 def download_theme(t_path, theme_name, video_json):
     print(f"{theme_name}: Downloading...", end="", flush=True)
-    # print(video_json["audio"]["link"])  
     response = requests.get(video_json["audio"]["link"])
     if response.status_code == 200:
         download_path = f'{t_path}/{theme_name}'
@@ -154,7 +153,7 @@ def download_themes(t_path, series_json):
                 if video["overlap"] != "None": # No overs or transitions
                     continue
                 try: # Look to see if it is in data.json or needs an update
-                    if video["audio"]["updated_at"] == stored_data[full_cur_theme] and video["audio"]["link"] not in audio_links and \
+                    if video["audio"]["filename"] == stored_data[full_cur_theme] and video["audio"]["link"] not in audio_links and \
                         os.path.isfile(os.path.join(t_path, full_cur_theme + ".ogg")):
                             audio_links.append(video["audio"]["link"])
                             print(f"{full_cur_theme}: Found in directory", file=sys.stderr)
@@ -162,7 +161,7 @@ def download_themes(t_path, series_json):
                             break
                 except Exception:
                     pass
-                stored_data[full_cur_theme] = video["audio"]["updated_at"] # Add to data.json
+                stored_data[full_cur_theme] = video["audio"]["filename"] # Add to data.json
                 if video["audio"]["link"] not in audio_links:
                     audio_links.append(video["audio"]["link"])
                     download_theme(t_path, full_cur_theme, video)
