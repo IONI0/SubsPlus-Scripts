@@ -1,4 +1,4 @@
-# Auto Chap V3.3
+# Auto Chap V3.4
 import sys
 import json
 import os
@@ -108,7 +108,7 @@ def get_series_json(args):
             api_search_call += f"&filter[year-gte]={args.year}"
     global_search = requests.get(api_search_call).json()
     series_slug = global_search["search"]["anime"][0]["slug"]
-    series_json = requests.get(f"https://api.animethemes.moe/anime/{series_slug}?include=animethemes.animethemeentries.videos.audio").json()
+    series_json = requests.get(f"https://api.animethemes.moe/anime/{series_slug}?include=animethemes.animethemeentries.videos.audio&fields[audio]=filename,updated_at,link").json()
     return series_json["anime"]
 
 def download_theme(t_path, theme_name, video_json):
@@ -153,7 +153,7 @@ def download_themes(t_path, series_json):
                 if video["overlap"] != "None": # No overs or transitions
                     continue
                 try: # Look to see if it is in data.json or needs an update
-                    if video["audio"]["filename"] == stored_data[full_cur_theme] and video["audio"]["link"] not in audio_links and \
+                    if video["audio"]["updated_at"] == stored_data[full_cur_theme]["updated_at"] and video["audio"]["link"] not in audio_links and \
                         os.path.isfile(os.path.join(t_path, full_cur_theme + ".ogg")):
                             audio_links.append(video["audio"]["link"])
                             print(f"{full_cur_theme}: Found in directory", file=sys.stderr)
@@ -161,7 +161,10 @@ def download_themes(t_path, series_json):
                             break
                 except Exception:
                     pass
-                stored_data[full_cur_theme] = video["audio"]["filename"] # Add to data.json
+                # Add to data.json
+                stored_data[full_cur_theme] = {}
+                stored_data[full_cur_theme]["updated_at"] = video["audio"]["updated_at"] 
+                stored_data[full_cur_theme]["animethemes_filename"] = video["audio"]["filename"]
                 if video["audio"]["link"] not in audio_links:
                     audio_links.append(video["audio"]["link"])
                     download_theme(t_path, full_cur_theme, video)

@@ -20,3 +20,6 @@
 
 ## V3.3
 - Updated to work on new animethemes api. Since "updated_at" times are no longer used, data.json now uses the "filename" data for each theme to keep track of if they need updating. This means every series will have to be updated and themes redownloaded to fit the new data.json format.
+
+## V3.4
+- Found out how to access "updated_at" again which should mean that it can detect more accurately when a theme has been updated. Updated data.json to store both "updated_at" and the animethemes "filename" but unfortunately this format change means all themes will have to be redownloaded again.
