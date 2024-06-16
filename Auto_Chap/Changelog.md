@@ -23,3 +23,12 @@
 
 ## V3.4
 - Found out how to access "updated_at" again which should mean that it can detect more accurately when a theme has been updated. Updated data.json to store both "updated_at" and the animethemes "filename" but unfortunately this format change means all themes will have to be redownloaded again.
+
+## V4.0
+- Up to **2-3x faster theme matching** by using ffmpeg to extract the audio from mkv to a temp file, downsampling the audio, and using 2 threads for matching OP and ED in parallel. Chart creation is also done in parallel on a separate process
+    - The downsampling factor defaults to 8 and can be changed using `--downsample 32` for example. There are diminishing returns as you increase it.
+    - ffmpeg is required in PATH, it will now create a temp `.autochap.wav` file if the input is an mkv file. The temp file uses the first audio track and may be quite big.
+- Up to **2-5x faster theme downloading** by downloading in parallel. Speed up depends on how many themes in the series, internet speeds, etc.
+    - Themes to download in parallel defaults to 10 and can be changed using `--parallel-dl 2` for example
+- Reduced false positives where only the beginning of a theme is played by using the entire theme audio to match instead of first 30 seconds
+- Fixed `--year` to only match that specific year if the number is non-negative
