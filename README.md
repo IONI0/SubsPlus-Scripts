@@ -49,11 +49,14 @@ options:
   --snap [SNAP]         Milisecond window to snap to nearest keyframe for frame-perfect chapters.
                         Efficiently generates necessary keyframes from video. Defaults to 1000ms if no
                         value added. Values higher than about 1000 currently crash.
+  --score SCORE         Required score for a theme to be accepted as a match. Increase it to reduce false 
+                        positives, decrease it to be more lenient. Score is y-axis in charts divided by 
+                        downsample factor. Defaults to 4000.
   --downsample DOWNSAMPLE
                         Factor to downsample audio when matching, higher means speedier potentially with
-                        lower accuracy. Defaults to 8
+                        lower accuracy. Defaults to 8.
   --parallel-dl PARALLEL_DL
-                        How many themes to download in parellel. Defaults to 10
+                        How many themes to download in parellel. Defaults to 10.
   --work-path WORK_PATH, -w WORK_PATH
                         Place to create a .themes folder for storing persistant information per series.
                         Defaults to where the episode is.

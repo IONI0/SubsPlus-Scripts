@@ -1,4 +1,4 @@
-# Auto Chap V4.0
+# Auto Chap V4.1
 import sys
 import json
 import os
@@ -13,6 +13,7 @@ import requests
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 import librosa
+import audioread.ffdec
 import numpy as np
 from scipy import signal
 import matplotlib.pyplot as plt
@@ -54,13 +55,18 @@ def parse_args():
     )
     
     parser.add_argument(
-        "--downsample", type=int, default=8,
-        help="Factor to downsample audio when matching, higher means speedier potentially with lower accuracy. Defaults to 8",
+        "--score", type=int, default=4000,
+        help="Required score for a theme to be accepted as a match. Increase it to reduce false positives, decrease it to be more lenient. Score is y-axis in charts divided by downsample factor. Defaults to 4000.",
+    )
+    
+    parser.add_argument(
+        "--downsample", type=int, default=32,
+        help="Factor to downsample audio when matching, higher means speedier potentially with lower accuracy. Defaults to 32.",
     )
     
     parser.add_argument(
         "--parallel-dl", type=int, default=10,
-        help="How many themes to download in parellel. Defaults to 10",
+        help="How many themes to download in parellel. Defaults to 10.",
     )
     
     parser.add_argument(
@@ -218,46 +224,49 @@ def generate_chart(theme_name, c, t_path, matched=True):
     
     print(f"{theme_name}: Chart generated")
 
-def find_offset(within_file, find_file, t_path, make_charts, downsampling_factor = 4):
-    theme_name = os.path.splitext(find_file.name)[0]
+def find_offset(y_episode, sr_episode, theme_file, t_path, args):
+    theme_name = os.path.splitext(theme_file.name)[0]
     
     try:
-        y_within, sr_within = librosa.load(within_file, sr=None)
+        aro = audioread.ffdec.FFmpegAudioFile(str(theme_file))
+        y_theme, _ = librosa.load(aro, sr=sr_episode)
     except Exception as exc:
-        print(f"Could not load input file: {exc}", file=sys.stderr)
+        print(f"Could not load theme file - {theme_name}: {exc}", file=sys.stderr)
         sys.exit(1)
-    y_find, _ = librosa.load(find_file, sr=sr_within)
     
-    silence = np.zeros(5 * sr_within) # 5 secs silence prepended to fix matches at the beginning of episode
-    within_adjust = np.concatenate((silence, y_within))
+    y_episode= y_episode[::args.downsample]
+    y_theme = y_theme[::args.downsample]
     
-    within_adjust_downsampled = within_adjust[::downsampling_factor]
-    y_find_downsampled = y_find[::downsampling_factor]
-
+    # 5 secs silence prepended to fix matches at the beginning of episode
+    silence_length = int(5 * sr_episode / args.downsample)
+    y_episode_adjust = np.empty(silence_length + len(y_episode), dtype=y_episode.dtype)
+    y_episode_adjust[:silence_length] = 0
+    y_episode_adjust[silence_length:] = y_episode
+    
     try:
-        c = signal.correlate(within_adjust_downsampled, y_find_downsampled, mode="valid", method="auto")
+        c = signal.correlate(y_episode_adjust, y_theme, mode="valid", method="auto")
     except Exception:
         print(f"{theme_name}: Error in correlate. Continuing...", file=sys.stderr)
         return None, None
-    
-    required_score = 2000 / downsampling_factor # To prevent false positives. Number is a bit arbitrary 
+
+    required_score = args.score / args.downsample 
     
     match_idx = np.argmax(c)
     score = np.max(c)
-    offset = max(round(match_idx / (sr_within / downsampling_factor), 2) - 5, 0)
+    offset = max(round((match_idx - silence_length) / (sr_episode / args.downsample), 2), 0)
         
-    duration = librosa.get_duration(path=find_file)
+    duration = librosa.get_duration(path=str(theme_file))
     
     if score > required_score: 
         print(f"{theme_name}: Matched from {get_timestamp(offset)} -> {get_timestamp(offset + duration)}", file=sys.stderr)
-        if make_charts:
+        if args.charts:
             with ProcessPoolExecutor() as executor:
                 executor.submit(generate_chart, theme_name, c, t_path, True)
         return offset, (offset + duration)
     
     else:
         print(f"{theme_name}: Not matched", file=sys.stderr)
-        if make_charts:
+        if args.charts:
             with ProcessPoolExecutor() as executor:
                 executor.submit(generate_chart, theme_name, c, t_path, False)
         return None, None
@@ -386,16 +395,14 @@ def extract_episode_audio(args):
     else:
         args.episode_audio_path = str(args.input)
         
-def process_themes(t_path, args, theme_files, theme_type):
+def process_themes(t_path, args, theme_files, theme_type, y_episode, sr_episode):
         matched_flag = False
         local_offset_list = []
         for (theme_name, theme_path) in theme_files:
             if theme_type in theme_name and matched_flag:
                 print(f"{theme_name}: Skipping because already matched an {theme_type}", file=sys.stderr)
                 continue
-            
-            offset1, offset2 = find_offset(args.episode_audio_path, theme_path, t_path, args.charts, args.downsample)
-            
+            offset1, offset2 = find_offset(y_episode, sr_episode, theme_path, t_path, args)
             if offset1 is not None:
                 matched_flag = True
                 local_offset_list.append(offset1)
@@ -417,9 +424,16 @@ def match_themes(args, t_path):
     
     offset_list = []
     print("Matching themes...")
+    
+    try:
+        y_episode, sr_episode = librosa.load(str(args.episode_audio_path), sr=None)
+    except Exception as exc:
+        print(f"Could not load input file - {str(args.episode_audio_path)}: {exc}", file=sys.stderr)
+        sys.exit(1)
+        
     with ThreadPoolExecutor(max_workers=2) as executor:
-        future_op = executor.submit(process_themes, t_path, args, op_files, "OP")
-        future_ed = executor.submit(process_themes, t_path, args, ed_files, "ED")
+        future_op = executor.submit(process_themes, t_path, args, op_files, "OP", y_episode, sr_episode)
+        future_ed = executor.submit(process_themes, t_path, args, ed_files, "ED", y_episode, sr_episode)
 
         for future in as_completed([future_op, future_ed]):
             offset_list.extend(future.result())
@@ -537,7 +551,7 @@ def main():
         extract_episode_audio(args)
         offset_list = match_themes(args, t_path)
         
-        file_duration = librosa.get_duration(path=args.episode_audio_path)
+        file_duration = librosa.get_duration(path=str(args.episode_audio_path))
         
         offset_list.sort()
         if chapter_validator(offset_list, file_duration):  
@@ -546,11 +560,9 @@ def main():
                 offset_list = snap(args, offset_list)
                 print_snapped_times(offset_list, file_duration)
             generate_chapters(offset_list, file_duration, args.output)
-        
+    finally:
         if args.delete_themes:
             shutil.rmtree(t_path)
-        
-    finally:
         try:
             if args.episode_audio_path.endswith(".autochap.wav"):
                 os.remove(args.episode_audio_path)

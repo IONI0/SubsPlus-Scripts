@@ -32,3 +32,11 @@
     - Themes to download in parallel defaults to 10 and can be changed using `--parallel-dl 2` for example
 - Reduced false positives where only the beginning of a theme is played by using the entire theme audio to match instead of first 30 seconds
 - Fixed `--year` to only match that specific year if the number is non-negative
+
+## V4.1
+- Up to **2-3x faster theme matching** than V4.0
+    - Speed-up applies more when there are more themes that need to be matched. Optimisation includes only loading the episode audio once at the beginning and using the audioread module to load theme files.
+- Fixed compatibility issue with macos caused by audioread loading.
+- Use `--score` to set adjust how lenient the matching should be. Increase from default to reduce false positives. Decrease it to be more lenient. Score is y-axis in charts divided by the downsample factor.
+- Increased default score from 2000 to 4000
+- Increased default downsample factor from 8 to 32
