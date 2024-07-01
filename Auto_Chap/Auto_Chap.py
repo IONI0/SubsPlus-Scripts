@@ -1,4 +1,4 @@
-# Auto Chap V4.1
+# Auto Chap V4.1a
 import sys
 import json
 import os
@@ -55,8 +55,8 @@ def parse_args():
     )
     
     parser.add_argument(
-        "--score", type=int, default=4000,
-        help="Required score for a theme to be accepted as a match. Increase it to reduce false positives, decrease it to be more lenient. Score is y-axis in charts divided by downsample factor. Defaults to 4000.",
+        "--score", type=int, default=2000,
+        help="Required score for a theme to be accepted as a match. Increase it to reduce false positives, decrease it to be more lenient. Score is y-axis in charts divided by downsample factor. Defaults to 2000.",
     )
     
     parser.add_argument(

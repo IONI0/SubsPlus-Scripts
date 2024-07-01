@@ -51,10 +51,10 @@ options:
                         value added. Values higher than about 1000 currently crash.
   --score SCORE         Required score for a theme to be accepted as a match. Increase it to reduce false 
                         positives, decrease it to be more lenient. Score is y-axis in charts divided by 
-                        downsample factor. Defaults to 4000.
+                        downsample factor. Defaults to 2000.
   --downsample DOWNSAMPLE
                         Factor to downsample audio when matching, higher means speedier potentially with
-                        lower accuracy. Defaults to 8.
+                        lower accuracy. Defaults to 32.
   --parallel-dl PARALLEL_DL
                         How many themes to download in parellel. Defaults to 10.
   --work-path WORK_PATH, -w WORK_PATH
