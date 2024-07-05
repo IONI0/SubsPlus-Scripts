@@ -10,7 +10,7 @@ These scripts are first and foremost made for SubsPlus+ releases and Hidive subt
 
 ### Auto_Chap
 
-Generate chapters by matching themes downloaded from [AnimeThemes](https://animethemes.moe) to the episode. 
+Generate chapters by matching themes downloaded from [AnimeThemes](https://animethemes.moe) to the episode.
 
 It creates a `.themes` folder with the downloaded themes for future runs and charts showing where the themes matched in the episode. Chapters will not be generated if no matches or more than 2 themes are matched, or 2 themes are in the same half of the episode. Themes tagged with `Transition` or `Over` on animethemes will not be downloaded and non-conventional themes like Oshi no Ko will likely not work as intended.
 
@@ -31,9 +31,10 @@ If you want frame-perfect chapters using `--snap`, keyframe generation requires:
 #### Usage
 ```console
 $ python Auto_Chap.py --help
-usage: Auto_Chap.py [-h] --input INPUT [--search-name SEARCH_NAME] [--year YEAR] [--snap [SNAP]]
-                    [--downsample DOWNSAMPLE] [--parallel-dl PARALLEL_DL] [--work-path WORK_PATH]
-                    [--output OUTPUT] [--delete-themes] [--charts]
+usage: Auto_Chap.py [-h] --input INPUT [--output OUTPUT] [--search-name SEARCH_NAME] [--year YEAR]
+                    [--snap [SNAP]] [--episode-snap EPISODE_SNAP] [--score SCORE]
+                    [--theme-portion THEME_PORTION] [--downsample DOWNSAMPLE] [--parallel-dl PARALLEL_DL]
+                    [--work-path WORK_PATH] [--delete-themes] [--charts]
 
 Automatic anime chapter generator using AnimeThemes.
 
@@ -41,27 +42,33 @@ options:
   -h, --help            show this help message and exit
   --input INPUT, -i INPUT
                         Video/Audio file.
+  --output OUTPUT, -o OUTPUT
+                        Output chapter file. Defaults to where the episode is.
   --search-name SEARCH_NAME, -s SEARCH_NAME
                         Search to pass to animethemes.moe Example: Spy Classroom Season 2. To only use
                         themes that are already downloaded, don't add this argument.
   --year YEAR           Release year to help filter the search. Put the negative number to allow that year
                         or later.
-  --snap [SNAP]         Milisecond window to snap to nearest keyframe for frame-perfect chapters.
-                        Efficiently generates necessary keyframes from video. Defaults to 1000ms if no
-                        value added. Values higher than about 1000 currently crash.
-  --score SCORE         Required score for a theme to be accepted as a match. Increase it to reduce false 
-                        positives, decrease it to be more lenient. Score is y-axis in charts divided by 
+  --snap [SNAP]         Millisecond window to snap to nearest keyframe for frame-perfect chapters.
+                        Efficiently generates necessary keyframes from video. Defaults to 1000ms if no value
+                        added. Values higher than about 1000 currently crash.
+  --episode-snap EPISODE_SNAP
+                        Window in seconds to snap chapters to the start or end of the episode. This gets
+                        applied at the very end. Defaults to 4.
+  --score SCORE         Score required for a theme to be accepted as a match. Increase it to reduce false
+                        positives, decrease it to be more lenient. Score is y-axis in charts divided by
                         downsample factor. Defaults to 2000.
+  --theme-portion THEME_PORTION
+                        Portion of a theme required in the episode to be a match. Keep below 1 so that it
+                        can still match themes that get slightly cut off. Defaults to 0.9.
   --downsample DOWNSAMPLE
                         Factor to downsample audio when matching, higher means speedier potentially with
                         lower accuracy. Defaults to 32.
   --parallel-dl PARALLEL_DL
-                        How many themes to download in parellel. Defaults to 10.
+                        How many themes to download in parallel. Defaults to 10.
   --work-path WORK_PATH, -w WORK_PATH
-                        Place to create a .themes folder for storing persistant information per series.
+                        Place to create a .themes folder for storing persistent information per series.
                         Defaults to where the episode is.
-  --output OUTPUT, -o OUTPUT
-                        Output chapter file. Defaults to where the episode is.
   --delete-themes, -d   Delete the themes and charts after running.
   --charts, -c          Make charts of where themes are matched in the episode. They can almost double
                         processing time in some cases though.

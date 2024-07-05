@@ -1,7 +1,7 @@
 # Auto_Chap Changelog
 
 ## V3.0
-- Make chapters frame-perfect by using `--snap` to snap them to scene changes within a certain millisecond window. This requires new dependencies [Vapoursynth](https://github.com/vapoursynth/vapoursynth), [ffm2](https://github.com/FFMS/ffms2), and [vapoursynth-scxvid](https://github.com/dubhater/vapoursynth-scxvid). If you are not using this feature then these dependencies do not need to be installed. It efficiently generates needed keyframes and is very fast compared to generating keyframes for the entire episode, taking only about 2 seconds. 
+- Make chapters frame-perfect by using `--snap` to snap them to scene changes within a certain millisecond window. This requires new dependencies [Vapoursynth](https://github.com/vapoursynth/vapoursynth), [ffm2](https://github.com/FFMS/ffms2), and [vapoursynth-scxvid](https://github.com/dubhater/vapoursynth-scxvid). If you are not using this feature then these dependencies do not need to be installed. It efficiently generates needed keyframes and is very fast compared to generating keyframes for the entire episode, taking only about 2 seconds.
 - Filter search year of the series using `--year`.
 - Filter for series released on or after that year using a negative number after `--year`. I added this because search for multi-season shows can sometimes give you the wrong one.
 
@@ -44,3 +44,11 @@
 ## V4.1a
 - Revert default score from 4000 back to 2000
 - Please give me feedback on the change in downsample default. If 32 causes any errors then let me know.
+
+## V4.2
+- Fixed non-matches for episodes where themes in the episode are slightly shorter such as when a theme is played at the very end of the episode. Now uses the beginning 90% of the theme for matching. The portion of the theme used can be changed using `--theme-portion`
+- Moved episode snap option for snapping chapters to the start and end of the episode to an optional argument using `--episode-snap` The default is still 4 seconds so that previews/endscreens 5 seconds long will get their own chapter.
+- Fixed typo in chapter output when there is only an ED.
+- Rearranged arguments and fixed typos.
+- Trimmed trailing whitespace.
+- Standardised error messages.
