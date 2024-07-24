@@ -1,4 +1,4 @@
-# Regex Stuff V2.2
+# Regex Stuff V2.3
 import sys
 import re
 
@@ -25,7 +25,7 @@ def fix_incorrect_songs_style(lines_list):
     for line_idx, line in enumerate(lines_list):
         if line.startswith("Dialogue:"):
             d = line2dict(line)
-            if "Song" in d["Style"] and "\pos" in d["Text"]:
+            if "Song" in d["Style"] and "\\pos" in d["Text"]:
                 d["Style"] = "Caption-Default"
                 add_default_style = True
             lines_list[line_idx] = dict2line(d)
@@ -54,7 +54,7 @@ def add_song_fad(d):
 def fix_em_dash(d):
     # Dash with a space before it is usually em-dash for punctuation. 
     # The space should be removed before the general replace in the last line
-    if not "}-" in d["Text"]: # Not Caption line that is -Title of Something-
+    if not re.search(r"\s-[A-Za-z]", d["Text"]): # Not Caption line that is -Title of Something-
         if not d["Style"].startswith("Caption"):
             d["Text"] = d["Text"].replace(" - ", "—")
             d["Text"] = d["Text"].replace(" -\\N", "—\\N")
@@ -119,7 +119,7 @@ def main(inpath, outpath):
     with open(inpath, encoding="utf-8") as infile:
         lines_list = infile.readlines()
     
-    fix_incorrect_songs_style(lines_list)
+    # fix_incorrect_songs_style(lines_list)
     apply_fix(lines_list, add_song_fad)
     apply_fix(lines_list, fix_em_dash)
     apply_fix(lines_list, fix_long_lines)

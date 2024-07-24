@@ -1,4 +1,4 @@
-# P-Proper_Stutter V2.1
+# P-Proper_Stutter V2.3
 import sys
 import re
 
@@ -17,10 +17,10 @@ def dict2line(d):
     return "{Format}: {Layer},{Start},{End},{Style},{Name},{MarginL},{MarginR},{MarginV},{Effect},{Text}".format(**d)
 
 def two_letter_fix(words):
-    for x in range(0,10):
-        words = re.sub("(?<!\w)([Ww])-([Ww]h)", "\\1h-\\2", words)
-        words = re.sub("(?<!\w)([Ss])-([Ss]h)", "\\1h-\\2", words)
-        words = re.sub("(?<!\w)([Tt])-([Tt]h)", "\\1h-\\2", words)
+    for x in range(20):
+        words = re.sub(r"(?<!\w)([Ww])-([Ww]h)", "\\1h-\\2", words)
+        words = re.sub(r"(?<!\w)([Ss])-([Ss]h)", "\\1h-\\2", words)
+        words = re.sub(r"(?<!\w)([Tt])-([Tt]h)", "\\1h-\\2", words)
         
     return words
 
@@ -56,6 +56,10 @@ def two_letter_stutter(letters, a):
         pass
     
     return letters
+    
+def blacklist_only_two_letters(word):
+    pattern = r'\b\w*-\w{3,}\b'
+    return bool(re.search(pattern, word))
 
 def stutter_fix(word):
     try:
@@ -69,7 +73,8 @@ def stutter_fix(word):
                 letters = one_letter_stutter(letters, a)
                     
             elif letters[2+a] == "-" and letters[0+a].lower() == letters[3+a].lower() and letters[1+a].lower() == letters[4+a].lower():
-                letters = two_letter_stutter(letters, a)
+                if blacklist_only_two_letters(word):
+                    letters = two_letter_stutter(letters, a)
     except:
         pass
     new_word = "".join(letters)
@@ -84,13 +89,13 @@ def stutter_opperations(words):
     new_line = []
     for word in words_ls:
         # S..so -> S... So or S-So
-        m = re.search("(?<!\w)(\w)\.\.(\w)", word)
+        m = re.search(r"(?<!\w)(\w)\.\.(\w)", word)
         try:
             if m.group(1) == m.group(2):
-                word = re.sub("(?<!\w)(\w)\.\.(\w)", "\\1..\\2", word) # "\\1... \\2" or "\\1-\\2" or "\\1..\\2"
+                word = re.sub(r"(?<!\w)(\w)\.\.(\w)", "\\1..\\2", word) # "\\1... \\2" or "\\1-\\2" or "\\1..\\2"
             elif m.group(1).lower() == m.group(2):
                 g2 = str(m.group(1).upper())
-                word = re.sub("(?<!\w)(\w)\.\.(\w)", f"\\1..{g2}", word) # "\\1... {g2}" or "\\1-{g2}" or "\\1..{g2}"
+                word = re.sub(r"(?<!\w)(\w)\.\.(\w)", f"\\1..{g2}", word) # "\\1... {g2}" or "\\1-{g2}" or "\\1..{g2}"
         except:
             pass
         

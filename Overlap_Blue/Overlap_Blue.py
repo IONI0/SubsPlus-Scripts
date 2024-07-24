@@ -1,9 +1,9 @@
-# Overlap_Blue V2.1
+# Overlap_Blue V2.2
 import sys
 import re
 
 # Set to None to be any font.
-DIALOGUE_FONT = None
+DIALOGUE_FONT = "SPOverrideF"
 COLOR_HEX = "&H743E15&"
 
 def line2dict(line):
@@ -77,15 +77,16 @@ def apply(lines_list, is_valid_style_bottom, is_valid_style_top):
             continue
         
         d = line2dict(line)
+        
+        # Top track
+        if (d.get("Style") in is_valid_style_top and not any(keyword in d.get("Text", "") \
+            for keyword in ["\\an", "\\pos", "\\move"]) or ("\\an8" in d.get("Text")) and "Subtitle" in d.get("Style")): 
+            lines_list[line_idx], top_end_time, top_stack_end_time = apply_overlap_blue(d, top_end_time, top_stack_end_time)
+            
         # Bottom track
-        if d.get("Style") in is_valid_style_bottom and not any(keyword in d.get("Text", "") \
+        elif d.get("Style") in is_valid_style_bottom and not any(keyword in d.get("Text", "") \
             for keyword in ["\\an", "\\pos", "\\move"]): 
             lines_list[line_idx], bottom_end_time, bottom_stack_end_time = apply_overlap_blue(d, bottom_end_time, bottom_stack_end_time)
-            
-        # Top track
-        elif d.get("Style") in is_valid_style_top and not any(keyword in d.get("Text", "") \
-            for keyword in ["\\an", "\\pos", "\\move"]): 
-            lines_list[line_idx], top_end_time, top_stack_end_time = apply_overlap_blue(d, top_end_time, top_stack_end_time)
  
 def main(inpath, outpath):
     with open(inpath, encoding="utf-8") as infile:

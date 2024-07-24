@@ -1,15 +1,12 @@
 # SubsPlus+ Automation Scripts
-
 Automation scripts made for fixing Hidive subtitles and other functions.
 
 ## Scripts
-
-These are the first batch of scripts. There are a few more I haven't finished cleaning up yet, which I might add later. I'm not an experienced programmer, so constructive criticism is appreciated.
+Check the wiki tab for additional information. I'm not an experienced programmer, so constructive criticism is appreciated.
 
 These scripts are first and foremost made for SubsPlus+ releases and Hidive subtitles, so don't expect the more specific scripts to work outside of that context.
 
 ### Auto_Chap
-
 Generate chapters by matching themes downloaded from [AnimeThemes](https://animethemes.moe) to the episode.
 
 It creates a `.themes` folder with the downloaded themes for future runs and charts showing where the themes matched in the episode. Chapters will not be generated if no matches or more than 2 themes are matched, or 2 themes are in the same half of the episode. Themes tagged with `Transition` or `Over` on animethemes will not be downloaded and non-conventional themes like Oshi no Ko will likely not work as intended.
@@ -148,6 +145,19 @@ python Chapter_Snapper.py -i "autochap.txt" -kf "keyframes.txt" -s 2000 -o "Proj
 
 ---
 
+### Converter
+All the other scripts expect to be run off of the output of this. Detects what the new Hidive Q styles should be (Subtitle, Caption, Song) and restyles them. Song detection is very difficult now, there may be false positives or missed insert-songs so keep an eye on it. You can switch between the advanced song detection method and the restrictive one by commenting the other one out.
+
+#### Dependencies
+```
+pip install ass
+```
+#### Usage
+Accepts new Erai-raws Hidive scripts (where the styles are all named Q#) and multi-downloader-nx Hidive script using settings `--fontSize 48 --originalFontSize false`
+```
+python Converter.py infile.ass outfile.ass
+```
+
 ### Overlap_Blue
 Change outline color of a line when it is overlapping another. Supports top and bottom track but only if they are defined in styles not inline. Works well for Crunchyroll and Hidive shows.
 
@@ -165,7 +175,7 @@ COLOR_HEX = "&H743E15&"
 ---
 
 ### Hidive_Splitter
-Relavant for [multi-downloader-nx](https://github.com/anidl/multi-downloader-nx) and [hidive-downloader-nx](https://github.com/anidl/hidive-downloader-nx). Split and combine lines so that each line has its own event. This prevents subtitles from shifting positions. Note: Some orders will be reversed to preserve rendering position.
+Split and combine lines so that each line has its own event. This prevents subtitles from shifting positions. Note: Some orders will be reversed to preserve rendering position. Erai-raws has started to implement this feature and it can be enabled on [multi-downloader-nx](https://github.com/anidl/multi-downloader-nx) by adding `--combineLines` to the arguments but running this on top of them is still safe.
 
 #### Usage
 ```
@@ -203,6 +213,33 @@ Designed for hidive scripts from [multi-downloader-nx](https://github.com/anidl/
 python Regex_Stuff.py infile.ass outfile.ass
 ```
 
+---
+
+### Sign_DeOverlap
+Send dialogue to the top if it covers a sign. It approximates the bounding boxes of the dialogue and the signs then compares them. Only works with converted Hidive subtitles, don't try to use this in other cases.
+
+#### Dependencies
+```
+pip install "pillow>=10.1.0"
+```
+
+#### Usage
+```
+python Sign_DeOverlap.py infile.ass outfile.ass
+```
+
+---
+
+### Style_Cleanup
+Simplify styles to look nicer internally, does not affect how it renders. Original code and idea from [Animorphs](https://github.com/Animorphs) modified into a standalone script.
+
+#### Usage
+```
+python Style_Cleanup.py infile.ass outfile.ass
+```
+
+---
+
 ## Acknowledgements
 - [hiisi13/Audio Offset](https://github.com/hiisi13/audio-offset-finder) for finding themes within an episode
 - [AnimeThemes](https://animethemes.moe) api for getting themes
@@ -210,3 +247,4 @@ python Regex_Stuff.py infile.ass outfile.ass
 - [tp7/Prass](https://github.com/tp7/Prass) keyframe snapping code for Chapter_Snapper
 - [Myaamori/keyframes.py](https://gist.github.com/Myaamori/dfb0030fd4ee44364ca3b0c2c9c9b4aa) inspiration for auto_chap keyframes generation
 - [FichteFoll/snap_scenechanges.py](https://gist.github.com/FichteFoll/9184e0ef75df71d7da184c485caf5266) functions and logic for converting frames to time, etc. in auto_chap snapping
+- [Animorphs](https://github.com/Animorphs) original code for Style_Cleanup and general help with other scripts
