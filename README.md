@@ -158,6 +158,8 @@ Accepts new Erai-raws Hidive scripts (where the styles are all named Q#) and mul
 python Converter.py infile.ass outfile.ass
 ```
 
+---
+
 ### Overlap_Blue
 Change outline color of a line when it is overlapping another. Supports top and bottom track but only if they are defined in styles not inline. Works well for Crunchyroll and Hidive shows.
 
@@ -166,10 +168,11 @@ Change outline color of a line when it is overlapping another. Supports top and 
 python Overlap_Blue.py infile.ass outfile.ass
 ```
 
-Change settings at the top of the script. Specify dialogue font if you don't want it to color an alternative dialogue font.
+Change settings at the top of the script. Specify dialogue font if you don't want it to color an alternative dialogue font. CENTISECOND_LENIENCY means don't count as overlap if it is less than _ centiseconds. Any value above 0 has a chance of missing overlaps if the frame advances between the two lines. But some scripts may have two lines within the same frame that get misinterpreted as an overlap if no Leniency given.
 ```python
-DIALOGUE_FONT = None
+DIALOGUE_FONT = "SPOverrideF"
 COLOR_HEX = "&H743E15&"
+CENTISECOND_LENIENCY = 3
 ```
 
 ---
@@ -199,8 +202,6 @@ python P-Proper_Stutter.py infile.ass outfile.ass
 ---
 
 ### Regex_Stuff
-Designed for hidive scripts from [multi-downloader-nx](https://github.com/anidl/multi-downloader-nx).
-
 - Add fade to song styles
 - Fix em-dash
 - Fix triple dialogue lines
