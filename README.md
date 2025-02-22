@@ -6,6 +6,8 @@ Check the wiki tab for additional information. I'm not an experienced programmer
 
 These scripts are first and foremost made for SubsPlus+ releases and Hidive subtitles, so don't expect the more specific scripts to work outside of that context.
 
+---
+
 ### Auto_Chap
 Generate chapters by matching themes downloaded from [AnimeThemes](https://animethemes.moe) to the episode.
 
@@ -152,6 +154,7 @@ All the other scripts expect to be run off of the output of this. Detects what t
 ```
 pip install ass
 ```
+
 #### Usage
 Accepts new Erai-raws Hidive scripts (where the styles are all named Q#) and multi-downloader-nx Hidive script using settings `--fontSize 48 --originalFontSize false`
 ```
@@ -178,7 +181,7 @@ CENTISECOND_LENIENCY = 3
 ---
 
 ### Hidive_Splitter
-Split and combine lines so that each line has its own event. This prevents subtitles from shifting positions. Note: Some orders will be reversed to preserve rendering position. Erai-raws has started to implement this feature and it can be enabled on [multi-downloader-nx](https://github.com/anidl/multi-downloader-nx) by adding `--combineLines` to the arguments but running this on top of them is still safe.
+Split and combine lines so that each line has its own event. This prevents subtitles from shifting positions. Note: Some orders will be reversed to preserve rendering position. It can be enabled on [multi-downloader-nx](https://github.com/anidl/multi-downloader-nx) by adding `--combineLines` to the arguments but running this on top of them is still safe.
 
 #### Usage
 ```
@@ -212,6 +215,22 @@ python P-Proper_Stutter.py infile.ass outfile.ass
 #### Usage
 ```
 python Regex_Stuff.py infile.ass outfile.ass
+```
+
+---
+
+### Resampler
+Simple script resampler from 720p to 1080p with rounding. Only works for these simple Hidive subtitles, don't try to use this in other cases.
+
+
+#### Dependencies
+```
+pip install ass
+```
+
+#### Usage
+```
+python Resampler.py infile.ass outfile.ass
 ```
 
 ---
