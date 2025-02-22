@@ -1,4 +1,4 @@
-# Converter V1.3
+# Converter V1.6
 
 import sys
 import copy
@@ -9,7 +9,11 @@ from ass.data import Color as Color
 def set_info(doc):
     doc.info["Title"] = "[SubsPlus+]"
     doc.info["YCbCr Matrix"] = "TV.709"
-
+    try:
+        doc.info.pop("LayoutResX")
+        doc.info.pop("LayoutResY")
+    except KeyError:
+        pass
 
 def sort_signs(obj):
     if "\\pos" in obj.text:
@@ -281,6 +285,31 @@ def restyler(doc):
             style.margin_l = 20
             style.margin_r = 20
             style.margin_v = 20
+            # style.spacing = 0.01
+
+
+def fix_small_font_shenanigans(doc):
+    # Fix times where it is going subtitle font size 48 -> 40 -> 32 as an effect
+
+    styles_by_name = {style.name: style for style in doc.styles}
+
+    for i, event in enumerate(doc.events):
+        style = styles_by_name.get(event.style)
+        if not (style and style.alignment == 8 and "Subtitle" in style.name):
+            continue
+
+        if i + 1 < len(doc.events):
+            next_event = doc.events[i + 1]
+            next_style = styles_by_name.get(next_event.style)
+            if not ("Subtitle" in next_style.name and next_style.fontsize < 40):
+                continue
+            small_style = copy.deepcopy(style)
+            small_style.name = "Subtitle-Small"
+            small_style.alignment = 2
+            small_style.fontsize = 40
+            doc.styles.append(small_style)
+            event.style = "Subtitle-Small"
+
 
 
 def main(inpath, outpath):
@@ -293,6 +322,7 @@ def main(inpath, outpath):
     song_detection(doc)
     # restrictive_song_detection(doc)
     restyler(doc)
+    fix_small_font_shenanigans(doc)
     rescale_captions(doc)
 
     with open(outpath, "w", encoding='utf_8_sig') as f:
