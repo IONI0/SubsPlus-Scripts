@@ -1,4 +1,4 @@
-# Style_Cleanup V1.4
+# Style_Cleanup V1.5
 
 import sys
 import re
@@ -97,6 +97,7 @@ def update_styles_and_inline_tags(styles, events, style_inline):
             break
 
     fallback_style_count = 0
+    subtitle_other_font_dict = {}
 
     for index, style in enumerate(styles):
         style_dict = style_to_dict(style)
@@ -114,8 +115,22 @@ def update_styles_and_inline_tags(styles, events, style_inline):
             style_dict["Name"] = "Subtitle"
 
             if style_dict["Fontname"] != default_style_dict["Fontname"]:
-                style_dict["Name"] += f"-{style_dict['Fontname']}"
-            elif not compare_dictionaries(style_dict, default_style_dict,
+                style_dict["Name"] = style_dict["Fontname"]
+                try:
+                    break_flag = False
+                    for i, stored_style in enumerate(subtitle_other_font_dict[style_dict["Fontname"]]):
+                        if compare_dictionaries(style_dict, stored_style, exclude_keys=["Name"]):
+                            f_count = i + 1
+                            break_flag = True
+                            break
+                    if not break_flag:
+                        subtitle_other_font_dict[style_dict["Fontname"]].append(style_dict)
+                        f_count = len(subtitle_other_font_dict[style_dict["Fontname"]])
+                except Exception as e:
+                    subtitle_other_font_dict[style_dict["Fontname"]] = [style_dict]
+                    f_count = 1
+                style_dict["Name"] = f"Subtitle-{style_dict['Fontname']}-{f_count}"
+            elif not compare_dictionaries(style_dict, default_style_dict, exclude_keys=
                                     ["Name", "Fontsize", "Alignment", "Italic", "Underline", "MarginL", "MarginR", "MarginV"]):
                 fallback_style_count += 1
                 style_dict["Name"] = "Subtitle-" + str(fallback_style_count)
