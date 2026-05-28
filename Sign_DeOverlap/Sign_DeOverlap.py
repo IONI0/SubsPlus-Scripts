@@ -19,7 +19,7 @@ script_height = int(720 * scale)
 
 # No font so approximation
 try:
-    dialogue_font = ImageFont.load_default(50 * scale * 0.85)
+    dialogue_font = ImageFont.load_default(48 * scale * 0.85)
 except Exception:
     print("Make sure you have updated to >= 10.1.0", file=sys.stderr)
     sys.exit(1)

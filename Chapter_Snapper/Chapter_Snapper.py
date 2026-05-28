@@ -1,4 +1,4 @@
-# Chapter Snapper V2.1
+# Chapter Snapper V2.7
 import sys
 import bisect
 import math
@@ -13,41 +13,60 @@ def parse_args():
         "--input", "-i", type=Path, required=True,
         help="Chapter file. Must be in simple format.",
     )
-    
+
     parser.add_argument(
-        "--keyframes", "-kf", type=Path, required=True,
+        "--keyframes", "-kf", type=Path,
         help="SCXvid keyframes. Try to have minimal mkv delay or it might not line up.",
     )
-    
+
     parser.add_argument(
         "--output", "-o", type=Path,
         help="Output chapter file. Defaults to where input is.",
     )
-    
+
+    parser.add_argument(
+        "--sync", type=int, default=0,
+        help="How many milliseconds to shift chapters before snapping",
+    )
+
+    parser.add_argument(
+        "--adn", default=False, action="store_true",
+        help="Rename chapters, and additional adjustments. Looks for 'Opening' & 'Ending' chapter names and fill in 'Prologue', 'Episode', 'Epilogue'",
+    )
+
+    parser.add_argument(
+        "--ep-duration", type=int,
+        help="Duration in milliseconds of the episode to snap/remove last chapter.",
+    )
+
     parser.add_argument(
         "--snap-ms", "-s", type=int, default=1000,
         help="How many milliseconds to consider snapping to. Defaults to 1000ms.",
     )
-    
+
     parser.add_argument(
         "--fps", type=float, default=23.976,
         help="FPS of the video. Defaults to 23.976.",
     )
-    
+
     args = parser.parse_args()
-    
+
     if args.output is None:
         args.output = args.input.with_name(args.input.stem + "_snapped.txt")
-        
+
+    if args.snap_ms != 0 and not args.keyframes:
+        print("Error: For snapping, keyframes must be supplied. Set --snap-ms to 0 for no snapping", file=sys.stderr)
+        sys.exit(1)
+
     return args
 
 def parse_srt_time(string):
     hours, minutes, seconds, milliseconds = map(int, re.match(r"(\d+):(\d+):(\d+)\.(\d+)", string).groups())
-    return hours * 3600000 + minutes * 60000 + seconds * 1000 + milliseconds 
-        
+    return hours * 3600000 + minutes * 60000 + seconds * 1000 + milliseconds
+
 def parse_scxvid_keyframes(text):
     return [i-3 for i,line in enumerate(text.splitlines()) if line and line[0] == "i"]
-        
+
 def parse_keyframes(path):
     with open(path) as file_object:
         text = file_object.read()
@@ -58,7 +77,7 @@ def parse_keyframes(path):
     if 0 not in frames:
         frames.insert(0, 0)
     return frames
-        
+
 class Timecodes(object):
     TIMESTAMP_END = 1
     TIMESTAMP_START = 2
@@ -147,7 +166,7 @@ class Timecodes(object):
     @classmethod
     def cfr(cls, fps):
         return Timecodes([], default_fps=fps)
-    
+
 def get_closest_kf(frame, keyframes):
     idx = bisect.bisect_left(keyframes, frame)
     if idx == len(keyframes):
@@ -160,36 +179,96 @@ def validate_chapters(chapter_read):
     if not chapter_read[0].startswith("CHAPTER01="):
         print("Invalid chapter format.", file=sys.stderr)
         sys.exit(1)
-        
-def apply(chapter_lines, timecodes, keyframes_list, snap_ms):
+
+def apply(chapter_lines, timecodes, keyframes_list, snap_ms, sync, adn=False, ep_duration=0):
+    # Time adjustments
     for idx, line in enumerate(chapter_lines):
-        if idx % 2 == 0:
-            chapter_split = line.split("=")
+        chapter_split = chapter_lines[idx].split("=")
+        if idx % 2 == 0: # Time segment CHAPTER01=00:00:00.000
             start_ms = parse_srt_time(chapter_split[1])
-            start_frame = timecodes.get_frame_number(start_ms, timecodes.TIMESTAMP_START)
-            closest_frame = get_closest_kf(start_frame, keyframes_list)
-            closest_time = timecodes.get_frame_time(closest_frame, timecodes.TIMESTAMP_START)
-            
-            if abs(closest_time - start_ms) <= snap_ms and start_ms != 0:
-                start_ms = max(0, closest_time)
-                timesec = start_ms/1000
-                timestamp = time.strftime(f"%H:%M:%S.{round(timesec%1*1000):03}", time.gmtime(timesec))
-                chapter_lines[idx] = f"{chapter_split[0]}={timestamp}\n"
-    
+            if start_ms > 50: # Doesn't start at beginning (with some leeway)
+                start_ms += sync
+            start_ms = max(0, start_ms)
+            if ep_duration and (ep_duration - start_ms) < 6000: # Remove all chapters within 6 secs of the end of the episode
+                chapter_lines = chapter_lines[:idx]
+                return chapter_lines
+            if len(keyframes_list) != 0:
+                start_frame = timecodes.get_frame_number(start_ms, timecodes.TIMESTAMP_START)
+                closest_frame = get_closest_kf(start_frame, keyframes_list)
+                closest_time = timecodes.get_frame_time(closest_frame, timecodes.TIMESTAMP_START)
+
+                if abs(closest_time - start_ms) <= snap_ms and start_ms != 0:
+                    start_ms = max(0, closest_time)
+            timesec = start_ms/1000
+            timestamp = time.strftime(f"%H:%M:%S.{round(timesec%1*1000):03}", time.gmtime(timesec))
+            chapter_lines[idx] = f"{chapter_split[0]}={timestamp}\n"
+
+    for idx, line in enumerate(chapter_lines):
+        chapter_split = chapter_lines[idx].split("=")
+        if idx % 2 == 1 and adn == True: # Name segment CHAPTER01NAME=Opening
+            chapter_name = chapter_split[1].strip()
+            if idx + 2 < len(chapter_lines):
+                next_chapter_split = chapter_lines[idx+2].split("=")
+                next_chapter_name = next_chapter_split[1].strip()
+                if next_chapter_name in ["Opening", "Intro"]:
+                    chapter_lines[idx] = f"{chapter_split[0]}=Prologue\n"
+                    chapter_lines[idx+2] = f"{next_chapter_split[0]}=Opening\n"
+                elif chapter_name in ["Opening", "Intro"]:
+                    chapter_lines[idx] = f"{chapter_split[0]}=Opening\n"
+                    chapter_lines[idx+2] = f"{next_chapter_split[0]}=Episode\n"
+                    # Since ADN opening chapters are 1 second short
+                    if idx-1 < 0:
+                        current_start_ms = 0
+                    else:
+                        current_chapter_time_split = chapter_lines[idx-1].split("=")
+                        current_start_ms = parse_srt_time(current_chapter_time_split[1])
+                    next_chapter_time_split = chapter_lines[idx+1].split("=")
+                    next_start_ms = parse_srt_time(next_chapter_time_split[1])
+                    if round((next_start_ms - current_start_ms) / 1000) == 89:
+                        next_start = (next_start_ms + 1000) / 1000
+                        new_timestamp = timestamp = time.strftime(f"%H:%M:%S.{round(next_start%1*1000):03}", time.gmtime(next_start))
+                        chapter_lines[idx+1] = f"{next_chapter_time_split[0]}={new_timestamp}\n"
+                elif next_chapter_name in ["Ending", "Ending Start", "Credits"]:
+                    chapter_lines[idx] = f"{chapter_split[0]}=Episode\n"
+                    chapter_lines[idx+2] = f"{next_chapter_split[0]}=Ending\n"
+                elif chapter_name in ["Ending", "Credits"]:
+                    chapter_lines[idx] = f"{chapter_split[0]}=Ending\n"
+                    chapter_lines[idx+2] = f"{next_chapter_split[0]}=Epilogue\n"
+                    # Since ADN ending chapters are 2 second short
+                    if idx-1 < 0:
+                        current_start_ms = 0
+                    else:
+                        current_chapter_time_split = chapter_lines[idx-1].split("=")
+                        current_start_ms = parse_srt_time(current_chapter_time_split[1])
+                    next_chapter_time_split = chapter_lines[idx+1].split("=")
+                    next_start_ms = parse_srt_time(next_chapter_time_split[1])
+                    # See if Ending chapter is 88 seconds long
+                    if round((next_start_ms - current_start_ms) / 1000) == 88:
+                        next_start = (next_start_ms + 2000) / 1000
+                        new_timestamp = timestamp = time.strftime(f"%H:%M:%S.{round(next_start%1*1000):03}", time.gmtime(next_start))
+                        chapter_lines[idx+1] = f"{next_chapter_time_split[0]}={new_timestamp}\n"
+
+
+    return chapter_lines
+
 def main():
     args = parse_args()
-    
+
     timecodes = Timecodes.cfr(args.fps)
-    keyframes_list = parse_keyframes(args.keyframes)
-    
+
+    if args.snap_ms != 0:
+        keyframes_list = parse_keyframes(args.keyframes)
+    else:
+        keyframes_list = []
+
     with open(args.input, "r") as chapter_file:
         chapter_lines = chapter_file.readlines()
-        
+
     validate_chapters(chapter_lines)
-    apply(chapter_lines, timecodes, keyframes_list, args.snap_ms)
-            
+    chapter_lines = apply(chapter_lines, timecodes, keyframes_list, args.snap_ms, args.sync, args.adn, args.ep_duration)
+
     with open(args.output, "w") as out_file:
-        out_file.writelines(chapter_lines)    
-    
+        out_file.writelines(chapter_lines)
+
 if __name__ == "__main__":
     main()

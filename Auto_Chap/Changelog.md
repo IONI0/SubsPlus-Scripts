@@ -52,3 +52,6 @@
 - Rearranged arguments and fixed typos.
 - Trimmed trailing whitespace.
 - Standardised error messages.
+
+## V4.3
+- Improved generated charts to be more clear

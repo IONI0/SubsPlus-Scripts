@@ -1,4 +1,4 @@
-# Regex Stuff V2.5
+# Regex Stuff V2.6
 import sys
 import re
 
@@ -56,7 +56,7 @@ def fix_em_dash(d):
     # The space should be removed before the general replace in the last line
     if not (re.search(r"\s-[A-Za-z]", d["Text"]) or re.search(r"\}-[A-Za-z]", d["Text"]) or d["Text"].startswith("-")): # Not Caption line that is -Title of Something-
         d["Text"] = d["Text"].replace("--", "—")
-        if not d["Style"].startswith("Caption"):
+        if not "Caption" in d["Style"]:
             d["Text"] = d["Text"].replace(" - ", "—")
             d["Text"] = d["Text"].replace(" -\\N", "—\\N")
             d["Text"] = d["Text"].replace("-\\N", "—\\N")
@@ -71,7 +71,7 @@ def fix_em_dash(d):
         d["Text"] = d["Text"].replace("-\n", "—\n")
         d["Text"] = d["Text"].replace("\\N- ", "\\N—")
         # d["Text"] = d["Text"].replace("\\N-", "\\N—") # Could be false positive
-        if not d["Style"].startswith("Caption"):
+        if not "Caption" in d["Style"]:
             d["Text"] = d["Text"].replace("- ", "— ")
     return d
 
@@ -80,7 +80,7 @@ def fix_long_lines(d):
     # Important that this program is run after Hidive splitter
 
     if not "}-" in d["Text"]: # Caption line that is -Title of Something-
-        if not d["Style"].startswith("Caption"):
+        if not "Caption" in d["Style"]:
             pattern = re.compile(r"\\N")
             occurrences = pattern.findall(d["Text"])
             if len(occurrences) >= 2:
@@ -105,11 +105,12 @@ def fix_symbols(d):
     d["Text"] = re.sub("’", "'", d["Text"])
     d["Text"] = re.sub("“", '"', d["Text"])
     d["Text"] = re.sub("”", '"', d["Text"])
+    d["Text"] = re.sub("…", '...', d["Text"])
 
     return d
 
 def fix_layers(d):
-    if not d["Style"].startswith("Caption"):
+    if not d["Style"].startswith("Caption"): # Excludes Hybrid captions
         d["Layer"] = "10"
 
     return d

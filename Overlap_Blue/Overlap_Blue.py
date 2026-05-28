@@ -1,4 +1,4 @@
-# Overlap_Blue V2.3
+# Overlap_Blue V2.4
 import sys
 import re
 
@@ -84,7 +84,7 @@ def apply(lines_list, is_valid_style_bottom, is_valid_style_top):
 
         # Top track
         if (d.get("Style") in is_valid_style_top and not any(keyword in d.get("Text", "") \
-            for keyword in ["\\an", "\\pos", "\\move"]) or ("\\an8" in d.get("Text")) and "Subtitle" in d.get("Style")):
+            for keyword in ["\\an", "\\pos", "\\move"]) or ("\\an8" in d.get("Text"))):
             lines_list[line_idx] = apply_overlap_blue(d, top_end_times)
 
         # Bottom track

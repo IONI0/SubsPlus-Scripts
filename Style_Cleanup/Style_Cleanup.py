@@ -1,10 +1,10 @@
-# Style_Cleanup V1.5
+# Style_Cleanup V1.6
 
 import sys
 import re
 
-DEFAULT_STYLE = "SPOverrideF,50,&H00FFFFFF,&H00FFFFFF,&H00000000,&HA0000000,-1,0,0,0,100,100,0,0,1,2.4,1,2,40,40,40,1"
-ALT_STYLE = "SPOverrideF,50,&H00FFFFFF,&H00FFFFFF,&H00743E15,&HA0000000,-1,0,0,0,100,100,0,0,1,2.4,1,2,40,40,40,1"
+DEFAULT_STYLE = "SPOverrideF,48,&H00FFFFFF,&H00FFFFFF,&H00000000,&HA0000000,-1,0,0,0,100,100,0,0,1,2.4,1,2,40,40,40,1"
+ALT_STYLE = "SPOverrideF,48,&H00FFFFFF,&H00FFFFFF,&H00743E15,&HA0000000,-1,0,0,0,100,100,0,0,1,2.4,1,2,40,40,40,1"
 OVERLAP_TAG = "{\\3c&H743E15&}"
 
 def event_to_dict(line):
@@ -79,6 +79,8 @@ def map_styles_with_inline_tags(styles):
 
         elif "Cap" in style_dict["Name"]:
             style_inline[style_dict["Name"]] = f"\\fn{style_dict['Fontname']}\\fs{style_dict['Fontsize']}\\c&H{style_dict['PrimaryColour'][-6:]}&"
+            if str(style_dict["Bold"]) == "0":
+                style_inline[style_dict["Name"]] += r"\b0"
             if str(style_dict["Italic"]) == "-1":
                 style_inline[style_dict["Name"]] += r"\i1"
             if str(style_dict["Underline"]) == "-1":
@@ -170,6 +172,7 @@ def update_styles_and_inline_tags(styles, events, style_inline):
             style_dict["PrimaryColour"] = default_style_dict["PrimaryColour"]
             style_dict["SecondaryColour"] = default_style_dict["SecondaryColour"]
             style_dict["Alignment"] = "7"
+            style_dict["Bold"] = "-1"
             style_dict["Italic"] = "0"
             style_dict["Underline"] = "0"
 

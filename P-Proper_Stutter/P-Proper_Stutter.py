@@ -1,4 +1,4 @@
-# P-Proper_Stutter V2.3
+# P-Proper_Stutter V2.4
 import sys
 import re
 
@@ -17,12 +17,15 @@ def dict2line(d):
     return "{Format}: {Layer},{Start},{End},{Style},{Name},{MarginL},{MarginR},{MarginV},{Effect},{Text}".format(**d)
 
 def two_letter_fix(words):
-    for x in range(20):
-        words = re.sub(r"(?<!\w)([Ww])-([Ww]h)", "\\1h-\\2", words)
-        words = re.sub(r"(?<!\w)([Ss])-([Ss]h)", "\\1h-\\2", words)
-        words = re.sub(r"(?<!\w)([Tt])-([Tt]h)", "\\1h-\\2", words)
-        
-    return words
+    pattern = re.compile(r"(?<!\w)([WwSsTt])-([WwSsTt]h)")
+
+    def replacer(match):
+        first, second = match.groups()
+        if (first.lower(), second.lower()) in [('w', 'wh'), ('s', 'sh'), ('t', 'th')]:
+            return f"{first}h-{second}"
+        return match.group(0)  # No change
+
+    return pattern.sub(replacer, words)
 
 def one_letter_stutter(letters, a):
     if letters[1+a] == "-" and letters[0+a].lower() == letters[2+a].lower():
@@ -38,7 +41,7 @@ def one_letter_stutter(letters, a):
                     break
         except IndexError:
             pass
-    
+
     return letters
 
 def two_letter_stutter(letters, a):
@@ -54,31 +57,35 @@ def two_letter_stutter(letters, a):
                 break
     except IndexError:
         pass
-    
+
     return letters
-    
+
 def blacklist_only_two_letters(word):
     pattern = r'\b\w*-\w{3,}\b'
-    return bool(re.search(pattern, word))
+    if re.search(pattern, word): # At least 3 letters after the hyphen
+        return True
+    else:
+        parts = word.split('-')
+        for part in parts:
+            if re.search(r'[aeiouAEIOU]', part): # Has vowel in it like Ha-ha-, Ow-ow
+                return False
+        return True # Wh-wh-, Sh-sh
 
 def stutter_fix(word):
-    try:
-        a = word.find(next(filter(str.isalpha, word))) # Index of first alphabet character
-    except:
-        a = 0
-    letters = [x for x in word] 
-    try:
-        if letters[0+a].isupper():
-            if letters[1+a] == "-" and letters[0+a].lower() == letters[2+a].lower():
-                letters = one_letter_stutter(letters, a)
-                    
-            elif letters[2+a] == "-" and letters[0+a].lower() == letters[3+a].lower() and letters[1+a].lower() == letters[4+a].lower():
-                if blacklist_only_two_letters(word):
-                    letters = two_letter_stutter(letters, a)
-    except:
-        pass
+    letters = [x for x in word]
+    for a in range(len(word)):
+        try:
+            if letters[0+a].isupper():
+                if letters[1+a] == "-" and letters[0+a].lower() == letters[2+a].lower():
+                    letters = one_letter_stutter(letters, a)
+
+                elif letters[2+a] == "-" and letters[0+a].lower() == letters[3+a].lower() and letters[1+a].lower() == letters[4+a].lower():
+                    if blacklist_only_two_letters(word):
+                        letters = two_letter_stutter(letters, a)
+        except:
+            pass
     new_word = "".join(letters)
-    
+
     return new_word
 
 def stutter_opperations(words):
@@ -98,7 +105,7 @@ def stutter_opperations(words):
                 word = re.sub(r"(?<!\w)(\w)\.\.(\w)", f"\\1..{g2}", word) # "\\1... {g2}" or "\\1-{g2}" or "\\1..{g2}"
         except:
             pass
-        
+
         # Th..this -> Th..This or Th-This
         m = re.search(r"(?<!\w)(\w{2})\.\.(\w{2})", word)
         try:
@@ -109,34 +116,34 @@ def stutter_opperations(words):
                 word = re.sub(r"(?<!\w)(\w{2})\.\.(\w{2})", f"\\1..{g2}", word)  # "\\1... {g2}" or "\\1-{g2}" or "\\1..{g2}"
         except:
             pass
-        
+
         if "-" in word:
             new_line.append(stutter_fix(word))
         else:
             new_line.append(word)
-        
+
     new_line = " ".join(new_line)
     new_line = new_line.replace(" \\N ", "\\N")
     new_line = new_line.replace("} ", "}")
-    
+
     return new_line
 
 def apply(lines_list):
     for line_idx, line in enumerate(lines_list):
         if line.startswith("Dialogue: "):
             d = line2dict(line)
-            d["Text"] = stutter_opperations(d["Text"])   
+            d["Text"] = stutter_opperations(d["Text"])
             lines_list[line_idx] = dict2line(d)
-       
+
 def main(inpath, outpath):
     with open(inpath, encoding="utf-8") as infile:
         lines_list = infile.readlines()
 
     apply(lines_list)
-    
+
     with open(outpath, "w", encoding="utf-8") as outfile:
         outfile.writelines(lines_list)
-    
+
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         sys.exit(f"Usage: {sys.argv[0]} infile.ass outfile.ass")

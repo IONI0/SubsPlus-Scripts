@@ -1,4 +1,4 @@
-# Auto Chap V4.2
+# Auto Chap V4.3
 import sys
 import json
 import os
@@ -17,6 +17,7 @@ import audioread.ffdec
 import numpy as np
 from scipy import signal
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 
 ### Chapter Names
 PRE_OP = "Prologue"
@@ -220,16 +221,40 @@ def download_themes(t_path, args, series_json):
     with open(os.path.join(t_path, "data.json"), "w") as outfile:
         json.dump(stored_data, outfile, indent=4)
 
-def generate_chart(theme_name, c, t_path, matched=True):
+def generate_chart(theme_name, c, t_path, required_score, samplerate, matched_time):
     try:
+        # Convert sample indices to seconds
+        time_sec = np.arange(len(c)) / samplerate
+
+        # Create the figure and plot
         fig, ax = plt.subplots()
-        ax.plot(c)
+        ax.plot(time_sec, c, label="Match score")
+
+        # Add horizontal dotted line
+        ax.axhline(y=required_score, color='red', linestyle=':', linewidth=1.5, label="Required Score (Scaled by Downsample)")
+
+        # Format x-axis as mm:ss
+        def format_seconds(x, pos):
+            minutes = int(x // 60)
+            seconds = int(x % 60)
+            return f"{minutes:02d}:{seconds:02d}"
+
+        ax.xaxis.set_major_formatter(ticker.FuncFormatter(format_seconds))
+
+        # Labels and legend
+        ax.set_xlabel("Time")
+        ax.set_ylabel("Score")
+        if matched_time is not None:
+            ax.set_title(f'{theme_name} - Matched at {matched_time}')
+        else:
+            ax.set_title(f'{theme_name} - Not Matched')
+        ax.legend()
     except Exception as exc:
         print(f"{theme_name}: Could not plot figure - {exc}", file=sys.stderr)
         return
 
     try:
-        if matched:
+        if matched_time is not None:
             fig.savefig(os.path.join(f"{t_path}", "charts", f"{theme_name}_matched.png"))
         else:
             fig.savefig(os.path.join(f"{t_path}", "charts", f"{theme_name}.png"))
@@ -277,14 +302,14 @@ def find_offset(y_episode, sr_episode, theme_file, t_path, args):
         print(f"{theme_name}: Matched from {get_timestamp(offset)} -> {get_timestamp(offset + duration)}", file=sys.stderr)
         if args.charts:
             with ProcessPoolExecutor() as executor:
-                executor.submit(generate_chart, theme_name, c, t_path, True)
+                executor.submit(generate_chart, theme_name, c, t_path, required_score, sr_episode / args.downsample, get_timestamp(offset))
         return offset, (offset + duration)
 
     else:
         print(f"{theme_name}: Not matched", file=sys.stderr)
         if args.charts:
             with ProcessPoolExecutor() as executor:
-                executor.submit(generate_chart, theme_name, c, t_path, False)
+                executor.submit(generate_chart, theme_name, c, t_path, required_score, sr_episode / args.downsample, None)
         return None, None
 
 def get_timestamp(timesec):

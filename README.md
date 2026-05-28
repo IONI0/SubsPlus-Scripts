@@ -121,20 +121,23 @@ Snap chapter file to nearest keyframe using existing scxvid keyframes. Chapter f
 #### Usage
 ```console
 $ python Chapter_Snapper.py -h
-usage: Chapter_Snapper.py [-h] --input INPUT --keyframes KEYFRAMES [--output OUTPUT] [--snap-ms SNAP_MS]
-                               [--fps FPS]
+usage: Chapter_Snapper.py [-h] --input INPUT [--keyframes KEYFRAMES] [--output OUTPUT] [--sync SYNC] [--adn] [--ep-duration EP_DURATION]
+                          [--snap-ms SNAP_MS] [--fps FPS]
 
 Snap chapters to nearest keyframe.
 
 options:
   -h, --help            show this help message and exit
-  --input INPUT, -i INPUT
-                        Chapter file. Must be in simple format.
-  --keyframes KEYFRAMES, -kf KEYFRAMES
+  --input, -i INPUT     Chapter file. Must be in simple format.
+  --keyframes, -kf KEYFRAMES
                         SCXvid keyframes. Try to have minimal mkv delay or it might not line up.
-  --output OUTPUT, -o OUTPUT
-                        Output chapter file. Defaults to where input is.
-  --snap-ms SNAP_MS, -s SNAP_MS
+  --output, -o OUTPUT   Output chapter file. Defaults to where input is.
+  --sync SYNC           How many milliseconds to shift chapters before snapping
+  --adn                 Rename chapters, and additional adjustments. Looks for 'Opening' & 'Ending' chapter names and fill in 'Prologue', 'Episode',
+                        'Epilogue'
+  --ep-duration EP_DURATION
+                        Duration in milliseconds of the episode to snap/remove last chapter.
+  --snap-ms, -s SNAP_MS
                         How many milliseconds to consider snapping to. Defaults to 1000ms.
   --fps FPS             FPS of the video. Defaults to 23.976.
 ```

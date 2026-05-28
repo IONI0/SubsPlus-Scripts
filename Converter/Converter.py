@@ -1,4 +1,6 @@
-# Converter V1.6
+# Converter V1.9
+
+hybrid_captions_present = True
 
 import sys
 import copy
@@ -15,8 +17,9 @@ def set_info(doc):
     except KeyError:
         pass
 
+
 def sort_signs(obj):
-    if "\\pos" in obj.text:
+    if "Caption" in obj.style:
         return 1
     else:
         return 0
@@ -42,7 +45,7 @@ def detect_styles(doc):
                 try:
                     style_map[event.style]["Caption"]
                     # 900 styles for duplicates
-                    style_name = f"Subtitle-{style_num + 900}"
+                    style_name = f"Subtitle-{style_num + 900 - 1}"
                 except KeyError:
                     style_name = f"Subtitle-{style_num}"
                     new_style_num += 1
@@ -52,7 +55,7 @@ def detect_styles(doc):
             elif type == "Caption":
                 try:
                     style_map[event.style]["Subtitle"]
-                    style_name = f"Caption-{style_num + 900}"
+                    style_name = f"Caption-{style_num + 900 - 1}"
                 except KeyError:
                     style_name = f"Caption-{style_num}"
                     new_style_num += 1
@@ -239,13 +242,9 @@ def rescale_captions(doc):
             style.fontsize = round(style.fontsize / 1.2 * 1.125)
 
 
-def restyler(doc):
+def restyler(doc, hybrid_captions_present = False):
     for style in doc.styles:
         if "Subtitle" in style.name:
-            style.primary_color = Color.from_ass("&H00FFFFFF")
-            style.secondary_color = Color.from_ass("&H00FFFFFF")
-            style.outline_color = Color.from_ass("&H00000000")
-            style.back_color = Color.from_ass("&HA0000000")
             style.bold = True
             style.outline = 2.4
             style.shadow = 1
@@ -253,14 +252,36 @@ def restyler(doc):
             style.margin_r = 40
             style.margin_v = 40
             if style.fontname == "Swis721 BT":
+                style.primary_color = Color.from_ass("&H00FFFFFF")
+                style.secondary_color = Color.from_ass("&H00FFFFFF")
+                style.outline_color = Color.from_ass("&H00000000")
+                style.back_color = Color.from_ass("&HA0000000")
                 if style.fontsize == 40:
                     style.alignment = 8
                 if style.fontsize == 48 or style.fontsize == 40:
-                    style.fontsize = 50
+                    style.fontsize = 48
                 style.fontname = "SPOverrideF"
-            elif style.fontname == "Chiller" and style.fontsize < 63: # Change later
-                # send to an8
-                pass
+            # elif style.fontname == "Chiller" and style.fontsize < 63: # Change later
+            #     # send to an8
+            #     pass
+            else:
+                if hybrid_captions_present:
+                    if style.primary_color.to_ass() == "&H0094FDFF":
+                        style.primary_color = Color.from_ass("&H0000FFFF")
+                        style.secondary_color = Color.from_ass("&H0000FFFF")
+                    style.alignment = 8
+                    style.outline = 1
+                    style.shadow = 1
+                    new_style_name = style.name.replace("Subtitle", "Hybrid-Caption")
+                    for event in doc.events:
+                        if style.name in event.style:
+                            event.style = new_style_name
+                    style.name = new_style_name
+                else:
+                    style.primary_color = Color.from_ass("&H00FFFFFF")
+                    style.secondary_color = Color.from_ass("&H00FFFFFF")
+                    style.outline_color = Color.from_ass("&H00000000")
+                    style.back_color = Color.from_ass("&HA0000000")
         elif "Song" in style.name:
             style.fontname = "Sub Alegreya"
             style.fontsize = 46
@@ -282,9 +303,9 @@ def restyler(doc):
                 style.secondary_color = Color.from_ass("&H0000FFFF")
             style.outline = 1
             style.shadow = 1
-            style.margin_l = 20
-            style.margin_r = 20
-            style.margin_v = 20
+            style.margin_l = 40
+            style.margin_r = 40
+            style.margin_v = 40
             # style.spacing = 0.01
 
 
@@ -295,7 +316,7 @@ def fix_small_font_shenanigans(doc):
 
     for i, event in enumerate(doc.events):
         style = styles_by_name.get(event.style)
-        if not (style and style.alignment == 8 and "Subtitle" in style.name):
+        if not (style and style.alignment == 8 and "Subtitle" in style.name and style.fontname == "SPOverrideF"):
             continue
 
         if i + 1 < len(doc.events):
@@ -311,19 +332,42 @@ def fix_small_font_shenanigans(doc):
             event.style = "Subtitle-Small"
 
 
+def invert_hybrid_captions(doc):
+    # Invert hybrid captions so that on an8 they render in the correct order (since an8 renders from top to bottom instead of bottom to top)
+    new_events = []
+    buffer = []
+    cur_time = 0
+    for line in doc.events:
+        if "Hybrid-Caption" in line.style:
+            if line.start == cur_time:
+                buffer.append(line)
+                continue
+            cur_time = line.start
+            new_events.extend(reversed(buffer))
+            buffer.clear()
+            buffer.append(line)
+        else:
+            new_events.extend(reversed(buffer))
+            buffer.clear()
+            new_events.append(line)
+    new_events.extend(reversed(buffer))
+    doc.events = new_events
+
 
 def main(inpath, outpath):
     with open(inpath, encoding='utf_8_sig') as f:
         doc = ass.parse(f)
 
     set_info(doc)
-    doc.events = sorted(doc.events, key=sort_signs)
     detect_styles(doc)
     song_detection(doc)
     # restrictive_song_detection(doc)
-    restyler(doc)
+    restyler(doc, hybrid_captions_present)
     fix_small_font_shenanigans(doc)
     rescale_captions(doc)
+    doc.events = sorted(doc.events, key=sort_signs)
+    if hybrid_captions_present:
+        invert_hybrid_captions(doc)
 
     with open(outpath, "w", encoding='utf_8_sig') as f:
         doc.dump_file(f)
